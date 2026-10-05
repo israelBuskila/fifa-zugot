@@ -21,6 +21,22 @@ export interface Session {
   matchStartedAt: string; matches: Match[]; version: number; updatedAt: string;
 }
 export const cloneLineup = (lineup: Lineup): Lineup => ({ A: [...lineup.A], B: [...lineup.B], bench: [...lineup.bench] });
+export function shuffleLineup(playerIds: string[], previous?: Lineup, random = Math.random): Lineup {
+  if (playerIds.length < 4 || new Set(playerIds).size !== playerIds.length) throw new DomainError('יש לבחור לפחות ארבעה שחקנים שונים.');
+  const pairings = (lineup: Lineup) => [lineup.A.slice().sort().join(':'), lineup.B.slice().sort().join(':')].sort().join('|');
+  let shuffled = [...playerIds];
+  for (let attempt = 0; attempt < 8; attempt++) {
+    shuffled = [...playerIds];
+    for (let index = shuffled.length - 1; index > 0; index--) {
+      const other = Math.floor(random() * (index + 1));
+      [shuffled[index], shuffled[other]] = [shuffled[other], shuffled[index]];
+    }
+    const candidate = { A: shuffled.slice(0, 2), B: shuffled.slice(2, 4), bench: shuffled.slice(4) };
+    if (!previous || pairings(candidate) !== pairings(previous)) return candidate;
+  }
+  [shuffled[1], shuffled[2]] = [shuffled[2], shuffled[1]];
+  return { A: shuffled.slice(0, 2), B: shuffled.slice(2, 4), bench: shuffled.slice(4) };
+}
 export function validateLineup(playerIds: string[], lineup: Lineup): void {
   const all = [...lineup.A, ...lineup.B, ...lineup.bench];
   if (lineup.A.length !== 2 || lineup.B.length !== 2 || playerIds.length < 4 ||
