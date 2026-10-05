@@ -20,7 +20,11 @@ The full night is one document, so score changes, match completion, and Undo are
 
 ## Vercel deployment
 
-Import this repository into Vercel. Set the four environment variables above for Production and Preview, then deploy. Use a secure Atlas network access policy that permits Vercel's outbound traffic. Run the seed script locally against the intended Atlas database if sample data is wanted. The app has a manifest and installable icon; use HTTPS for home-screen installation.
+Import this repository into Vercel. Set `MONGODB_URI`, `MONGODB_DB`, `HOST_PASSWORD`, and `SESSION_SECRET` for Production and Preview, then deploy. Use an Atlas network access policy that permits Vercel's outbound traffic. Run the seed script locally against the intended Atlas database if sample data is wanted.
+
+For AI recaps, enable Vercel AI Gateway on the project so deployments can authenticate with OIDC. For local development, set `AI_GATEWAY_API_KEY` in `.env.local`. `AI_MODEL` defaults to `google/gemini-2.5-flash-lite`; change it to any supported AI Gateway text model to switch providers. The recap endpoint requires host login and sends only the selected night's names, results, and recorded events. Each recap is generated on demand and may incur model charges.
+
+The app includes a manifest, home-screen icons, install prompt on supported browsers, iOS installation guidance, and a service worker with a public offline fallback page. Private pages and API responses are never cached by the service worker. Use HTTPS for home-screen installation.
 
 ## Checks
 
@@ -28,4 +32,4 @@ Import this repository into Vercel. Set the four environment variables above for
 
 ## MVP choices
 
-The host password is a single shared admin login. It can be replaced later with individual accounts. Detailed match events are optional and never interrupt the quick score flow. AI is intentionally absent; deterministic stats functions in `src/lib/domain.ts` are ready to serve future AI tools.
+The host password is a single shared admin login. It can be replaced later with individual accounts. Detailed match events are optional and never interrupt the quick score flow. The AI recap is optional; deterministic stats remain in `src/lib/domain.ts`.

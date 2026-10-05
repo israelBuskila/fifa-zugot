@@ -12,11 +12,12 @@
     "db:indexes": "tsx scripts/indexes.ts"
   },
   "dependencies": {
+    "ai": "^7.0.128",
+    "lucide-react": "^0.577.0",
+    "mongodb": "^7.2.0",
     "next": "16.3.8",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "mongodb": "^7.2.0",
-    "lucide-react": "^0.577.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
