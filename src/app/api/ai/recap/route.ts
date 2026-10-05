@@ -1,4 +1,5 @@
 import { generateText } from 'ai';
+import { createGoogle } from '@ai-sdk/google';
 import { NextResponse } from 'next/server';
 import { isAuthorized } from '@/lib/auth';
 import { collections } from '@/lib/db';
@@ -8,8 +9,8 @@ export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   if (!await isAuthorized()) return NextResponse.json({ error: 'יש להתחבר.' }, { status: 401 });
-  if (!process.env.AI_GATEWAY_API_KEY && !process.env.VERCEL_OIDC_TOKEN) {
-    return NextResponse.json({ error: 'יש להפעיל AI Gateway בפרויקט Vercel או להגדיר AI_GATEWAY_API_KEY.' }, { status: 503 });
+  if (!process.env.GEMINI_API_KEY) {
+    return NextResponse.json({ error: 'יש להגדיר מפתח Gemini API במסלול החינמי.' }, { status: 503 });
   }
 
   let sessionId: unknown;
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
       })).filter(pair => pair.played),
     };
     const { text } = await generateText({
-      model: process.env.AI_MODEL || 'google/gemini-2.5-flash-lite',
+      model: createGoogle({ apiKey: process.env.GEMINI_API_KEY })('gemini-3.5-flash-lite'),
       instructions: 'כתוב בעברית טבעית, קלילה ומצחיקה סיכום של ערב FIFA זוגות ב-3 עד 5 משפטים. השתמש אך ורק בעובדות שב-JSON. אל תמציא משחקים, שערים, שמות או אירועים. אפשר עקיצה ידידותית קלה, בלי עלבונות. אל תציג JSON או Markdown.',
       prompt: JSON.stringify(facts),
       maxOutputTokens: 260,
@@ -56,6 +57,6 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ recap: text.trim() }, { headers: { 'Cache-Control': 'no-store' } });
   } catch {
-    return NextResponse.json({ error: 'יצירת הסיכום נכשלה. בדקו את חיבור MongoDB ו־AI Gateway ונסו שוב.' }, { status: 502 });
+    return NextResponse.json({ error: 'יצירת הסיכום נכשלה. בדקו את חיבור MongoDB ואת מפתח Gemini ונסו שוב.' }, { status: 502 });
   }
 }

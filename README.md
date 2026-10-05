@@ -22,7 +22,7 @@ The full night is one document, so score changes, match completion, and Undo are
 
 Import this repository into Vercel. Set `MONGODB_URI`, `MONGODB_DB`, `HOST_PASSWORD`, and `SESSION_SECRET` for Production and Preview, then deploy. Use an Atlas network access policy that permits Vercel's outbound traffic. Run the seed script locally against the intended Atlas database if sample data is wanted.
 
-For AI recaps, enable Vercel AI Gateway on the project so deployments can authenticate with OIDC. For local development, set `AI_GATEWAY_API_KEY` in `.env.local`. `AI_MODEL` defaults to `google/gemini-2.5-flash-lite`; change it to any supported AI Gateway text model to switch providers. The recap endpoint requires host login and sends only the selected night's names, results, and recorded events. Each recap is generated on demand and may incur model charges.
+For AI recaps, create a Gemini API key in [Google AI Studio](https://aistudio.google.com/api-keys) on the Free Tier, without enabling billing, and set `GEMINI_API_KEY` in `.env.local` and in Vercel environment variables. The app uses `gemini-3.5-flash-lite` directly through the Vercel AI SDK. The endpoint requires host login and sends the selected night's names, results, and recorded events to Google only when a recap is requested. Google's Free Tier has rate limits and permits Google to use request data to improve its products. No Vercel AI Gateway billing is required.
 
 The app includes a manifest, home-screen icons, install prompt on supported browsers, iOS installation guidance, and a service worker with a public offline fallback page. Private pages and API responses are never cached by the service worker. Use HTTPS for home-screen installation.
 
