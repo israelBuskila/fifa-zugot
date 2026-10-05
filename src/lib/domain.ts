@@ -10,6 +10,8 @@ export interface MatchParticipant { playerId: string; team: Team }
 export interface Match {
   id: string; sessionId: string; sequenceNumber: number; participants: MatchParticipant[];
   scoreA: number; scoreB: number; winner: Team | null; resultType: ResultType;
+  punchline?: string;
+  punchlineStyle?: number;
   events: MatchEvent[]; startedAt: string; endedAt: string;
   benchBefore: string[]; leavingPlayerId?: string; lineupBefore: Lineup; lineupAfter: Lineup;
 }
@@ -34,6 +36,13 @@ export function determineWinner(scoreA: number, scoreB: number, resultType: Resu
     return selected;
   }
   return scoreA === scoreB ? null : scoreA > scoreB ? 'A' : 'B';
+}
+export function reviseMatchResult(match: Match, scoreA: number, scoreB: number, resultType: ResultType, selected?: Team): Match {
+  const winner = determineWinner(scoreA, scoreB, resultType, selected);
+  const { punchline: ignoredPunchline, punchlineStyle: ignoredStyle, ...rest } = match;
+  void ignoredPunchline;
+  void ignoredStyle;
+  return { ...rest, scoreA, scoreB, resultType, winner };
 }
 export function rotateLineup(lineup: Lineup, winner: Team | null, leavingPlayerId?: string): Lineup {
   const next = cloneLineup(lineup);
@@ -63,6 +72,37 @@ export function undoLastMatch(session: Session, now = new Date().toISOString()):
   const match = session.matches.at(-1)!;
   return { ...session, matches: session.matches.slice(0, -1), lineup: cloneLineup(match.lineupBefore),
     scoreA: match.scoreA, scoreB: match.scoreB, matchStartedAt: match.startedAt, updatedAt: now, version: session.version + 1 };
+}
+export interface RoundProgress { completed: { matchId: string; pair: [string, string] }[]; pair: [string, string] | null; beaten: number; required: number }
+export function getRoundProgress(matches: Match[]): RoundProgress {
+  const completed: RoundProgress['completed'] = [];
+  let pair: [string, string] | null = null;
+  let rosterKey = '';
+  let required = 0;
+  let beaten = new Set<string>();
+  const key = (ids: string[]) => [...ids].sort().join(':');
+  for (const match of [...matches].sort((a, b) => a.sequenceNumber - b.sequenceNumber)) {
+    if (!match.winner) { pair = null; beaten = new Set(); required = 0; rosterKey = ''; continue; }
+    const winners = match.participants.filter(player => player.team === match.winner).map(player => player.playerId);
+    const opponents = match.participants.filter(player => player.team !== match.winner).map(player => player.playerId);
+    const roster = [...new Set([...match.participants.map(player => player.playerId), ...match.benchBefore])];
+    if (winners.length !== 2 || opponents.length !== 2 || roster.length < 4) continue;
+    const nextPair = key(winners);
+    const nextRoster = key(roster);
+    if (!pair || key(pair) !== nextPair || rosterKey !== nextRoster) {
+      pair = [...winners].sort() as [string, string];
+      rosterKey = nextRoster;
+      const otherCount = roster.length - 2;
+      required = otherCount * (otherCount - 1) / 2;
+      beaten = new Set();
+    }
+    beaten.add(key(opponents));
+    if (beaten.size >= required) {
+      completed.push({ matchId: match.id, pair });
+      beaten = new Set();
+    }
+  }
+  return { completed, pair, beaten: beaten.size, required };
 }
 export interface PlayerStats { playerId: string; played: number; wins: number; losses: number; draws: number; goalsFor: number; goalsAgainst: number; winRate: number; winningStreak: number; losingStreak: number; longestWinningStreak: number; longestLosingStreak: number }
 export interface PairStats { playerIds: [string, string]; played: number; wins: number; losses: number; draws: number; goalsFor: number; goalsAgainst: number; winRate: number }

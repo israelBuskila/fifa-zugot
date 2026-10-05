@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isAuthorized } from '@/lib/auth';
 import { collections } from '@/lib/db';
-import { completeMatch, determineWinner, undoLastMatch, validateLineup, DomainError, type Lineup, type Session, type MatchEvent } from '@/lib/domain';
+import { completeMatch, reviseMatchResult, undoLastMatch, validateLineup, DomainError, type Lineup, type Session, type MatchEvent } from '@/lib/domain';
 export const dynamic='force-dynamic';
 const id=z.string().uuid();
 const lineup=z.object({A:z.array(id).length(2),B:z.array(id).length(2),bench:z.array(id)});
@@ -69,8 +69,7 @@ export async function POST(request:Request) {
     if(data.type==='session.lineup')return updateSession(data.sessionId,data.version,s=>{if(s.status!=='active')throw new DomainError('הערב הסתיים.');validateLineup(data.playerIds,data.lineup);return {...s,playerIds:data.playerIds,lineup:data.lineup,version:s.version+1,updatedAt:now};});
     if(data.type==='match.edit')return updateSession(data.sessionId,data.version,s=>{
       const index=s.matches.findIndex(m=>m.id===data.matchId);if(index<0)throw new DomainError('המשחק לא נמצא.');
-      const winner=determineWinner(data.scoreA,data.scoreB,data.resultType,data.selectedWinner);
-      const matches=[...s.matches];matches[index]={...matches[index],scoreA:data.scoreA,scoreB:data.scoreB,resultType:data.resultType,winner};
+      const matches=[...s.matches];matches[index]=reviseMatchResult(matches[index],data.scoreA,data.scoreB,data.resultType,data.selectedWinner);
       return {...s,matches,version:s.version+1,updatedAt:now};
     });
     return jsonError('פעולה לא נתמכת.');
