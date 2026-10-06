@@ -1,6 +1,6 @@
 export class DomainError extends Error {}
 export type Team = 'A' | 'B';
-export type ResultType = 'normal' | 'penalties' | 'technical';
+export type ResultType = 'normal' | 'penalties' | 'golden_goal' | 'technical';
 export type MatchEventType = 'goal' | 'own_goal' | 'penalty' | 'technical' | 'funny';
 export interface Player { id: string; name: string; nickname?: string; avatar?: string; active: boolean; createdAt: string }
 export interface Group { id: string; name: string; playerIds: string[]; createdAt: string }
