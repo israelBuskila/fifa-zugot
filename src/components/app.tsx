@@ -1,13 +1,11 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, BarChart3, Check, ChevronLeft, CirclePlus, Clock3, Crown, History, LogOut, Minus, Pencil, Plus, RotateCcw, Settings2, Share2, MessageSquareText, Shield, Shuffle, Sparkles, Swords, Trophy, Users, WifiOff, X } from 'lucide-react';
-import { getPlayerStats, getRoundProgress, shuffleLineup, type Group, type Lineup, type Match, type MatchEvent, type Player, type ResultType, type Session, type Team } from '@/lib/domain';
-import { AiRecap } from '@/components/ai-recap';
+import { BarChart3, ChevronLeft, History, LogOut, MessageSquareText, RotateCcw, Swords, Users, WifiOff, X } from 'lucide-react';
+import { type Group, type Lineup, type Match, type MatchEvent, type Player, type ResultType, type Session, type Team } from '@/lib/domain';
 import { MatchPunchline } from '@/components/match-punchline';
 import { InstallApp } from '@/components/install-app';
-import { BenchStudio, CommentaryStrip } from '@/components/bench-studio';
-import { TechnicalSummary } from '@/components/technical-summary';
-import { eventLabel, GameRow, resultLabel, RoundStatus, SessionRow, TeamPanel } from '@/components/game-ui';
+import { BenchStudio } from '@/components/bench-studio';
+import { resultLabel } from '@/components/game-ui';
 import { StatsView } from '@/components/stats-view';
 import { HistoryView } from '@/components/history-view';
 import { PlayersView } from '@/components/players-view';
@@ -20,8 +18,6 @@ const initial:Bootstrap={players:[],groups:[],sessions:[]};
 const nameOf=(players:Player[],id:string)=>players.find(p=>p.id===id)?.nickname||players.find(p=>p.id===id)?.name||'שחקן';
 const fullName=(players:Player[],id:string)=>players.find(p=>p.id===id)?.name||'שחקן';
 const names=(players:Player[],ids:string[])=>ids.map(id=>nameOf(players,id)).join(' + ');
-const formatDate=(value:string)=>new Date(value).toLocaleDateString('he-IL',{day:'numeric',month:'long',year:'numeric'});
-const scoreText=(m:Match)=>`${m.scoreA} : ${m.scoreB}`;
 const defaultLineup=(ids:string[]):Lineup=>({A:ids.slice(0,2),B:ids.slice(2,4),bench:ids.slice(4)});
 function Avatar({name,tone='blue'}:{name:string;tone?:'blue'|'coral'|'gold'}){return <span className={`avatar ${tone==='blue'?'':tone}`}>{name.slice(0,1)}</span>}
 function errorOf(err:unknown){return err instanceof Error?err.message:'הפעולה נכשלה. נסו שוב.'}
