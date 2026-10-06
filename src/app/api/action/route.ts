@@ -14,7 +14,7 @@ const action=z.discriminatedUnion('type',[
   z.object({type:z.literal('group.save'),name:z.string().trim().min(1).max(50),playerIds:z.array(id).min(4)}),
   z.object({type:z.literal('session.start'),title:z.string().trim().min(1).max(80),playerIds:z.array(id).min(4),lineup}),
   z.object({type:z.literal('session.score'),sessionId:id,version:z.number().int(),scoreA:z.number().int().min(0).max(99),scoreB:z.number().int().min(0).max(99)}),
-  z.object({type:z.literal('session.complete'),sessionId:id,version:z.number().int(),scoreA:z.number().int().min(0).max(99),scoreB:z.number().int().min(0).max(99),resultType:z.enum(['normal','penalties','technical']),selectedWinner:z.enum(['A','B']).optional(),technicalMinute,leavingPlayerId:id.optional(),skipRotation:z.boolean().optional(),events:events.optional()}),
+  z.object({type:z.literal('session.complete'),sessionId:id,version:z.number().int(),scoreA:z.number().int().min(0).max(99),scoreB:z.number().int().min(0).max(99),resultType:z.enum(['normal','penalties','golden_goal','technical']),selectedWinner:z.enum(['A','B']).optional(),technicalMinute,leavingPlayerId:id.optional(),skipRotation:z.boolean().optional(),events:events.optional()}),
   z.object({type:z.literal('session.undo'),sessionId:id,version:z.number().int()}),
   z.object({type:z.literal('session.bench.skip'),sessionId:id,version:z.number().int()}),
   z.object({type:z.literal('session.player.add'),sessionId:id,version:z.number().int(),playerId:id}),
@@ -23,7 +23,7 @@ const action=z.discriminatedUnion('type',[
   z.object({type:z.literal('session.lineup'),sessionId:id,version:z.number().int(),playerIds:z.array(id).min(4),lineup}),
   z.object({type:z.literal('quote.add'),sessionId:id,version:z.number().int(),playerId:id,text:z.string().trim().min(2).max(180)}),
   z.object({type:z.literal('quote.remove'),sessionId:id,version:z.number().int(),quoteId:id}),
-  z.object({type:z.literal('match.edit'),sessionId:id,version:z.number().int(),matchId:id,scoreA:z.number().int().min(0).max(99),scoreB:z.number().int().min(0).max(99),resultType:z.enum(['normal','penalties','technical']),selectedWinner:z.enum(['A','B']).optional(),technicalMinute}),
+  z.object({type:z.literal('match.edit'),sessionId:id,version:z.number().int(),matchId:id,scoreA:z.number().int().min(0).max(99),scoreB:z.number().int().min(0).max(99),resultType:z.enum(['normal','penalties','golden_goal','technical']),selectedWinner:z.enum(['A','B']).optional(),technicalMinute}),
 ]);
 function jsonError(message:string,status=400){return NextResponse.json({error:message},{status});}
 async function updateSession(sessionId:string, version:number, modify:(session:Session)=>Session) {
