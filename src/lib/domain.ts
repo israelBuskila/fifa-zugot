@@ -56,6 +56,7 @@ export function determineWinner(scoreA: number, scoreB: number, resultType: Resu
     return winner;
   }
   if (resultType === 'technical') throw new DomainError('טכני נרשם רק בתוצאה 3:0.');
+  if (resultType === 'golden_goal' && scoreA !== scoreB) throw new DomainError('גול זהב אפשר לבחור רק כשהתוצאה בתיקו.');
   if (resultType !== 'normal') {
     if (!selected) throw new DomainError('יש לבחור קבוצה מנצחת.');
     return selected;
