@@ -109,18 +109,18 @@ export function rotateLineup(lineup: Lineup, winner: Team | null, leavingPlayerI
   next.bench.push(leavingPlayerId);
   return next;
 }
-export function completeMatch(session: Session, input: { scoreA: number; scoreB: number; resultType: ResultType; selectedWinner?: Team; technicalMinute?: number; leavingPlayerId?: string; events?: MatchEvent[] }, now = new Date().toISOString()): Session {
+export function completeMatch(session: Session, input: { scoreA: number; scoreB: number; resultType: ResultType; selectedWinner?: Team; technicalMinute?: number; leavingPlayerId?: string; skipRotation?: boolean; events?: MatchEvent[] }, now = new Date().toISOString()): Session {
   if (session.status !== 'active') throw new DomainError('הערב כבר הסתיים.');
   validateLineup(session.playerIds, session.lineup);
   const winner = determineWinner(input.scoreA, input.scoreB, input.resultType, input.selectedWinner);
   validateTechnicalMinute(input.resultType, input.technicalMinute);
   const before = cloneLineup(session.lineup);
-  const after = rotateLineup(before, winner, input.leavingPlayerId);
+  const after = input.skipRotation ? skipNextBenchPlayer(before) : rotateLineup(before, winner, input.leavingPlayerId);
   const match: Match = { id: crypto.randomUUID(), sessionId: session.id, sequenceNumber: session.matches.length + 1,
     participants: [...before.A.map(playerId => ({playerId, team: 'A' as Team})), ...before.B.map(playerId => ({playerId, team: 'B' as Team}))],
     scoreA: input.scoreA, scoreB: input.scoreB, winner, resultType: input.resultType, technicalMinute: input.technicalMinute, events: input.events ?? [],
     startedAt: session.matchStartedAt, endedAt: now, benchBefore: before.bench,
-    leavingPlayerId: winner && before.bench.length ? input.leavingPlayerId : undefined,
+    leavingPlayerId: !input.skipRotation && winner && before.bench.length ? input.leavingPlayerId : undefined,
     lineupBefore: before, lineupAfter: after };
   return { ...session, matches: [...session.matches, match], lineup: after, scoreA: 0, scoreB: 0, matchStartedAt: now, updatedAt: now, version: session.version + 1 };
 }
