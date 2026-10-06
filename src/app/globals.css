@@ -36,3 +36,16 @@
   .live-night .score-controls button{width:54px;height:54px}
   .live-night .action-panel{bottom:78px}
 }
+
+.live-night .team-players{direction:rtl;display:grid;gap:6px;width:100%;justify-items:center}
+.live-night .team-player{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:900;white-space:nowrap}
+.live-night .team-player-dot{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#ffffff16;border:1px solid #ffffff25;font-size:10px}
+.live-night .score-plus{transform:scale(1.06);background:#ffffff38!important}
+.live-night .score-plus:active{transform:scale(.96)}
+.live-night .score-controls button:active{transform:scale(.94)}
+.live-night .live-finish-btn{font-size:18px;letter-spacing:-.02em}
+@media(max-width:420px){
+ .live-night .team-player{font-size:13px}
+ .live-night .team-player-dot{display:none}
+ .live-night .score-number{font-size:78px}
+}
