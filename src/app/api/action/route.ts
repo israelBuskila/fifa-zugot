@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isAuthorized } from '@/lib/auth';
 import { collections } from '@/lib/db';
-import { completeMatch, reviseMatchResult, undoLastMatch, validateLineup, DomainError, type Lineup, type Session, type MatchEvent } from '@/lib/domain';
+import { completeMatch, reviseMatchResult, skipNextBenchPlayer, undoLastMatch, validateLineup, DomainError, type Lineup, type Session, type MatchEvent } from '@/lib/domain';
 export const dynamic='force-dynamic';
 const id=z.string().uuid();
 const lineup=z.object({A:z.array(id).length(2),B:z.array(id).length(2),bench:z.array(id)});
@@ -16,6 +16,9 @@ const action=z.discriminatedUnion('type',[
   z.object({type:z.literal('session.score'),sessionId:id,version:z.number().int(),scoreA:z.number().int().min(0).max(99),scoreB:z.number().int().min(0).max(99)}),
   z.object({type:z.literal('session.complete'),sessionId:id,version:z.number().int(),scoreA:z.number().int().min(0).max(99),scoreB:z.number().int().min(0).max(99),resultType:z.enum(['normal','penalties','technical']),selectedWinner:z.enum(['A','B']).optional(),technicalMinute,leavingPlayerId:id.optional(),events:events.optional()}),
   z.object({type:z.literal('session.undo'),sessionId:id,version:z.number().int()}),
+  z.object({type:z.literal('session.bench.skip'),sessionId:id,version:z.number().int()}),
+  z.object({type:z.literal('session.player.add'),sessionId:id,version:z.number().int(),playerId:id}),
+  z.object({type:z.literal('session.player.remove'),sessionId:id,version:z.number().int(),playerId:id}),
   z.object({type:z.literal('session.end'),sessionId:id,version:z.number().int()}),
   z.object({type:z.literal('session.lineup'),sessionId:id,version:z.number().int(),playerIds:z.array(id).min(4),lineup}),
   z.object({type:z.literal('quote.add'),sessionId:id,version:z.number().int(),playerId:id,text:z.string().trim().min(2).max(180)}),
@@ -68,6 +71,9 @@ export async function POST(request:Request) {
     if(data.type==='session.score')return updateSession(data.sessionId,data.version,s=>{if(s.status!=='active')throw new DomainError('הערב הסתיים.');return {...s,scoreA:data.scoreA,scoreB:data.scoreB,version:s.version+1,updatedAt:now};});
     if(data.type==='session.complete')return updateSession(data.sessionId,data.version,s=>completeMatch(s,{scoreA:data.scoreA,scoreB:data.scoreB,resultType:data.resultType,selectedWinner:data.selectedWinner,technicalMinute:data.technicalMinute,leavingPlayerId:data.leavingPlayerId,events:data.events as MatchEvent[]|undefined},now));
     if(data.type==='session.undo')return updateSession(data.sessionId,data.version,s=>undoLastMatch(s,now));
+    if(data.type==='session.bench.skip')return updateSession(data.sessionId,data.version,s=>{if(s.status!=='active')throw new DomainError('הערב הסתיים.');return {...s,lineup:skipNextBenchPlayer(s.lineup),version:s.version+1,updatedAt:now};});
+    if(data.type==='session.player.add')return updateSession(data.sessionId,data.version,s=>{if(s.status!=='active')throw new DomainError('הערב הסתיים.');if(s.playerIds.includes(data.playerId))throw new DomainError('השחקן כבר משתתף בערב.');return {...s,playerIds:[...s.playerIds,data.playerId],lineup:{...s.lineup,bench:[...s.lineup.bench,data.playerId]},version:s.version+1,updatedAt:now};});
+    if(data.type==='session.player.remove')return updateSession(data.sessionId,data.version,s=>{if(s.status!=='active')throw new DomainError('הערב הסתיים.');if(!s.lineup.bench.includes(data.playerId))throw new DomainError('אפשר להוציא מהערב רק שחקן שנמצא כרגע בפרנג׳ס.');if(s.playerIds.length<=4)throw new DomainError('חייבים להישאר לפחות ארבעה שחקנים בערב.');return {...s,playerIds:s.playerIds.filter(id=>id!==data.playerId),lineup:{...s.lineup,bench:s.lineup.bench.filter(id=>id!==data.playerId)},version:s.version+1,updatedAt:now};});
     if(data.type==='session.end')return updateSession(data.sessionId,data.version,s=>({...s,status:'ended',endedAt:now,version:s.version+1,updatedAt:now}));
     if(data.type==='session.lineup')return updateSession(data.sessionId,data.version,s=>{if(s.status!=='active')throw new DomainError('הערב הסתיים.');validateLineup(data.playerIds,data.lineup);return {...s,playerIds:data.playerIds,lineup:data.lineup,version:s.version+1,updatedAt:now};});
     if(data.type==='quote.add')return updateSession(data.sessionId,data.version,s=>{

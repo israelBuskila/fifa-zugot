@@ -75,6 +75,31 @@ export function reviseMatchResult(match: Match, scoreA: number, scoreB: number, 
   void ignoredStyle;
   return { ...rest, scoreA, scoreB, resultType, winner, technicalMinute: resultType === 'technical' ? technicalMinute : undefined };
 }
+export interface RotationDecision { loser: Team | null; candidates: string[]; tenures: Record<string, number>; leavingPlayerId?: string; requiresShuffle: boolean; nextBenchPlayerId?: string }
+export function getCurrentCourtTenure(matches: Match[], lineup: Lineup, playerId: string): number {
+  if (![...lineup.A, ...lineup.B].includes(playerId)) return 0;
+  let tenure = 0;
+  for (let index = matches.length - 1; index >= 0; index--) {
+    if (!matches[index].participants.some(participant => participant.playerId === playerId)) break;
+    tenure++;
+  }
+  return Math.max(1, tenure + (matches.length === 0 ? 0 : 1));
+}
+export function getRotationDecision(matches: Match[], lineup: Lineup, winner: Team | null): RotationDecision {
+  if (!winner || !lineup.bench.length) return { loser: null, candidates: [], tenures: {}, requiresShuffle: false };
+  const loser: Team = winner === 'A' ? 'B' : 'A';
+  const candidates = [...lineup[loser]];
+  const tenures = Object.fromEntries(candidates.map(playerId => [playerId, getCurrentCourtTenure(matches, lineup, playerId)]));
+  const [first, second] = candidates;
+  const requiresShuffle = tenures[first] === tenures[second];
+  const leavingPlayerId = requiresShuffle ? undefined : tenures[first] > tenures[second] ? first : second;
+  return { loser, candidates, tenures, leavingPlayerId, requiresShuffle, nextBenchPlayerId: lineup.bench[0] };
+}
+export function skipNextBenchPlayer(lineup: Lineup): Lineup {
+  const next = cloneLineup(lineup);
+  if (next.bench.length > 1) next.bench.push(next.bench.shift()!);
+  return next;
+}
 export function rotateLineup(lineup: Lineup, winner: Team | null, leavingPlayerId?: string): Lineup {
   const next = cloneLineup(lineup);
   if (!winner || !next.bench.length) return next;
