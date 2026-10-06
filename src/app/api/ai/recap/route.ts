@@ -51,7 +51,10 @@ export async function POST(request: Request) {
       })).filter(pair => pair.played),
       completedRounds: getRoundProgress(session.matches).completed.map(round => round.pair.map(name)),
       quotesFromNight: (session.quotes ?? []).slice(-6).map(quote => ({player:name(quote.playerId),text:quote.text,matchNumber:quote.matchNumber})),
-      archive: suggestBanterMemories(session).slice(0,3).map(({memory,reason}) => ({text:memory.text,speaker:memory.speaker,date:memory.date,whyRelevant:reason})),
+      archive: [
+        ...suggestBanterMemories(session).slice(0,3).map(({memory,reason}) => ({text:memory.text,speaker:memory.speaker,date:memory.date,whyRelevant:reason})),
+        ...(session.quotes ?? []).slice(-6).map(quote => ({text:quote.text,speaker:name(quote.playerId),date:quote.createdAt,whyRelevant:`נשמר באפליקציה לפני משחק ${quote.matchNumber}`})),
+      ],
       writingVoices: groupVoiceNotes(roster),
     };
     const { text } = await generateText({
@@ -62,7 +65,21 @@ export async function POST(request: Request) {
       abortSignal: AbortSignal.timeout(15000),
     });
     return NextResponse.json({ recap: text.trim() }, { headers: { 'Cache-Control': 'no-store' } });
-  } catch {
-    return NextResponse.json({ error: 'יצירת הסיכום נכשלה. בדקו את חיבור MongoDB ואת מפתח Gemini ונסו שוב.' }, { status: 502 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const cause = error instanceof Error && 'cause' in error ? String(error.cause ?? '') : '';
+    const details = `${message} ${cause}`;
+    console.error('[ai-recap] generation failed', { name: error instanceof Error ? error.name : typeof error, message, cause });
+
+    if (/429|resource[_ -]?exhausted|quota|rate.?limit/i.test(details)) {
+      return NextResponse.json({ error: 'נגמרה כרגע מכסת Gemini החינמית או שהגענו למגבלת הבקשות. נסו שוב אחרי איפוס המכסה.' }, { status: 429 });
+    }
+    if (/abort|timeout|timed out/i.test(details)) {
+      return NextResponse.json({ error: 'Gemini לא הספיק לענות בזמן. נסו שוב בעוד רגע.' }, { status: 504 });
+    }
+    if (/api.?key|permission|403|401|unauth/i.test(details)) {
+      return NextResponse.json({ error: 'יש בעיה בהרשאה מול Gemini. צריך לבדוק את הגדרת GEMINI_API_KEY ב-Vercel.' }, { status: 502 });
+    }
+    return NextResponse.json({ error: 'יצירת סיכום ה-AI נכשלה. נסו שוב; פרטי התקלה נשמרו בלוג השרת.' }, { status: 502 });
   }
 }
