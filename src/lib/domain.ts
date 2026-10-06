@@ -203,3 +203,47 @@ export function getHeadToHead(matches: Match[], first: string, second: string) {
   for (const m of own) { if(!m.winner)draws++; else if(m.participants.find(p=>p.playerId===first)!.team===m.winner)firstWins++;else secondWins++; }
   return {played:own.length,firstWins,secondWins,draws};
 }
+
+
+export interface PlayerRecords {
+  playerId: string;
+  benchGames: number;
+  ownGoals: number;
+  funnyEvents: number;
+  technicalsGiven: number;
+  technicalsReceived: number;
+  fastestTechnical?: number;
+  biggestWinMargin: number;
+  biggestLossMargin: number;
+}
+export function getPlayerRecords(matches: Match[], playerId: string): PlayerRecords {
+  let benchGames=0, ownGoals=0, funnyEvents=0, biggestWinMargin=0, biggestLossMargin=0;
+  for (const match of matches) {
+    if (match.benchBefore.includes(playerId)) benchGames++;
+    const participant=match.participants.find(p=>p.playerId===playerId);
+    if (!participant) continue;
+    ownGoals += match.events.filter(event=>event.type==='own_goal'&&event.playerId===playerId).length;
+    funnyEvents += match.events.filter(event=>event.type==='funny'&&event.playerId===playerId).length;
+    const ownScore=participant.team==='A'?match.scoreA:match.scoreB;
+    const otherScore=participant.team==='A'?match.scoreB:match.scoreA;
+    const margin=Math.abs(ownScore-otherScore);
+    if (match.winner===participant.team) biggestWinMargin=Math.max(biggestWinMargin,margin);
+    else if (match.winner) biggestLossMargin=Math.max(biggestLossMargin,margin);
+  }
+  const technicals=getTechnicalStats(matches,playerId);
+  return {playerId,benchGames,ownGoals,funnyEvents,technicalsGiven:technicals.given,technicalsReceived:technicals.received,fastestTechnical:technicals.fastest,biggestWinMargin,biggestLossMargin};
+}
+export function getAllTimeRecords(matches: Match[], playerIds: string[]) {
+  const records=playerIds.map(id=>getPlayerRecords(matches,id));
+  const by=(pick:(record:PlayerRecords)=>number)=>[...records].sort((a,b)=>pick(b)-pick(a))[0];
+  const biggestMatch=[...matches].sort((a,b)=>Math.abs(b.scoreA-b.scoreB)-Math.abs(a.scoreA-a.scoreB))[0];
+  const fastestTechnical=[...matches].filter(match=>match.resultType==='technical'&&match.technicalMinute!==undefined).sort((a,b)=>a.technicalMinute!-b.technicalMinute!)[0];
+  return {
+    benchKing: by(record=>record.benchGames),
+    ownGoalKing: by(record=>record.ownGoals),
+    technicalKing: by(record=>record.technicalsGiven),
+    technicalCustomer: by(record=>record.technicalsReceived),
+    biggestMatch,
+    fastestTechnical,
+  };
+}
