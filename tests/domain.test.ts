@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { completeMatch, determineWinner, getCurrentCourtTenure, getHeadToHead, getPairStats, getPlayerStats, getRotationDecision, getRoundProgress, getTechnicalStats, reviseMatchResult, rotateLineup, shuffleLineup, skipNextBenchPlayer, undoLastMatch, validateLineup, type Lineup, type Session } from '../src/lib/domain';
+import { completeMatch, determineWinner, getCurrentCourtTenure, getHeadToHead, getPairStats, getPlayerStats, getRotationDecision, getRoundProgress, getTechnicalStats, getPlayerRecords, getAllTimeRecords, reviseMatchResult, rotateLineup, shuffleLineup, skipNextBenchPlayer, undoLastMatch, validateLineup, type Lineup, type Session } from '../src/lib/domain';
 const lineup:Lineup={A:['a','b'],B:['c','d'],bench:['e']};
 const now='2026-10-01T18:00:00.000Z';
 function session():Session{return {id:'night',title:'Test',date:'2026-10-01',startedAt:now,status:'active',playerIds:['a','b','c','d','e'],lineup:{A:['a','b'],B:['c','d'],bench:['e']},scoreA:0,scoreB:0,matchStartedAt:now,matches:[],version:1,updatedAt:now}}
@@ -65,4 +65,18 @@ test('bench skip rotates the queue without changing the four players on court',(
   const next=skipNextBenchPlayer(current);
   assert.deepEqual(next,{A:['a','b'],B:['c','d'],bench:['f','g','e']});
   assert.deepEqual(current,{A:['a','b'],B:['c','d'],bench:['e','f','g']});
+});
+
+test('records count bench appearances, own goals and biggest margins from existing match data',()=>{
+  let s=session();
+  s=completeMatch(s,{scoreA:4,scoreB:1,resultType:'normal',leavingPlayerId:'c',events:[{id:'og',type:'own_goal',playerId:'c'}]},'2026-10-01T18:20:00.000Z');
+  const cRecord=getPlayerRecords(s.matches,'c');
+  const eRecord=getPlayerRecords(s.matches,'e');
+  assert.equal(cRecord.ownGoals,1);
+  assert.equal(cRecord.biggestLossMargin,3);
+  assert.equal(eRecord.benchGames,1);
+  const records=getAllTimeRecords(s.matches,s.playerIds);
+  assert.equal(records.benchKing?.playerId,'e');
+  assert.equal(records.ownGoalKing?.playerId,'c');
+  assert.equal(records.biggestMatch?.id,s.matches[0].id);
 });
