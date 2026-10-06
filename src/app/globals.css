@@ -129,3 +129,10 @@
 .night-awards small{font-size:9px;font-weight:900;color:var(--muted);text-transform:uppercase}
 .night-awards strong{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:600px){.night-awards{grid-template-columns:repeat(2,1fr)}}
+
+.commentator-card{margin:14px 0;padding:16px;border:1px solid #ffffff14;border-radius:18px;background:radial-gradient(circle at 15% 0,#7b5cff1f,transparent 45%),linear-gradient(145deg,#171d2b,#11151d)}
+.commentator-card>span{display:block;margin-bottom:8px;font-size:10px;font-weight:950;letter-spacing:.08em;color:var(--gold)}
+.commentator-card .punchline-text{margin:0;font-size:17px;line-height:1.65;font-weight:800}
+.commentator-card.muted-card p{margin:0;color:var(--muted);line-height:1.55}
+.punchline-sheet .commentator-action{min-height:56px;margin-top:4px}
+.punchline-sheet .sheet-close{display:flex;align-items:center;justify-content:center;gap:6px}
