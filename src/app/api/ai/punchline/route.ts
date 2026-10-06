@@ -52,7 +52,7 @@ export async function POST(request: Request) {
       situation,
       winnerStreaks,
       losers: loserIds.map(name),
-      benchAfter: match.lineupAfter?.bench?.map(name) ?? [],
+      benchAfter: match.lineupAfter.bench.map(name),
     };
     const facts = {
       number: match.sequenceNumber,
