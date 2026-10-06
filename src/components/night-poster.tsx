@@ -19,14 +19,14 @@ export function NightPoster({session,players}:{session:Session;players:Player[]}
     const matchLines=session.matches.map(match=>{
       const teamA=names(players,match.lineupBefore.A),teamB=names(players,match.lineupBefore.B);
       const extras=[
-        match.resultType==='technical'?\`טכני 3:0\`:undefined,
-        match.technicalMinute!==undefined?\`דקה \${match.technicalMinute}\`:undefined,
-        ...match.events.slice(0,5).map(event=>\`\${event.type}\${event.playerId?\` - \${nameOf(players,event.playerId)}\`:''}\${event.text?\`: \${event.text}\`:''}\`)
+        match.resultType==='technical'?`טכני 3:0`:undefined,
+        match.technicalMinute!==undefined?`דקה ${match.technicalMinute}`:undefined,
+        ...match.events.slice(0,5).map(event=>`${event.type}${event.playerId?` - ${nameOf(players,event.playerId)}`:''}${event.text?`: ${event.text}`:''}`)
       ].filter(Boolean);
-      return \`משחק \${match.sequenceNumber}: \${teamA} מול \${teamB} — \${match.scoreA}:\${match.scoreB}\${extras.length?\` | \${extras.join(' | ')}\`:''}\`;
+      return `משחק ${match.sequenceNumber}: ${teamA} מול ${teamB} — ${match.scoreA}:${match.scoreB}${extras.length?` | ${extras.join(' | ')}`:''}`;
     }).join('\\n');
-    const quotes=(session.quotes??[]).slice(-8).map(q=>\`- \${nameOf(players,q.playerId)}: "\${q.text}"\${q.matchNumber?\` (משחק \${q.matchNumber})\`:''}\`).join('\\n');
-    const prompt=\`צור פוסטר אנכי 9:16 מצחיק, מושקע וקולנועי לערב FIFA זוגות של חבורת חברים. הסגנון: שידור ספורט עתידני + EA FC + הומור של קבוצת WhatsApp, עם תאורה דרמטית, טיפוגרפיה ספורטיבית וקומפוזיציה שמתאימה לסטורי.\\n\\nשם הערב: \${session.title}\\nתאריך: \${session.date}\\nמספר משחקים: \${session.matches.length}\\nסה"כ שערים: \${session.matches.reduce((n,m)=>n+m.scoreA+m.scoreB,0)}\\nמלך הערב: \${king}\\nזוג הערב: \${pair}\\nמלך הבורקסים: \${borekas}\\nהרצף הבולט: \${streakName}\\nהתוצאה של הערב: \${biggestText}\\n\\nכל המשחקים:\\n\${matchLines}\\n\${quotes?\`\\nציטוטים אמיתיים מהערב:\\n\${quotes}\\n\`:''}\\nהפוך את הנתונים לסצנה קומית אחת עם סיפור ברור והבלט את הרגע/היריבות הכי מצחיקים. מותר להמציא מטאפורות ויזואליות, כותרות עיתון ואלמנטים קומיים, אבל אסור להמציא תוצאות, שערים, אירועים או ציטוטים שלא מופיעים כאן. שמור את שמות השחקנים והתוצאות בדיוק. אם מצורפות תמונות reference של השחקנים, השתמש בהן כדי לשמור על הדמויות והפנים שלהם. אם אין תמונות, צור דמויות ספורטיביות כלליות ואל תטען שהן דומות לשחקנים האמיתיים. הטקסט המרכזי בפוסטר צריך להיות קצר וקריא בעברית.\`;
+    const quotes=(session.quotes??[]).slice(-8).map(q=>`- ${nameOf(players,q.playerId)}: "${q.text}"${q.matchNumber?` (משחק ${q.matchNumber})`:''}`).join('\\n');
+    const prompt=`צור פוסטר אנכי 9:16 מצחיק, מושקע וקולנועי לערב FIFA זוגות של חבורת חברים. הסגנון: שידור ספורט עתידני + EA FC + הומור של קבוצת WhatsApp, עם תאורה דרמטית, טיפוגרפיה ספורטיבית וקומפוזיציה שמתאימה לסטורי.\\n\\nשם הערב: ${session.title}\\nתאריך: ${session.date}\\nמספר משחקים: ${session.matches.length}\\nסה"כ שערים: ${session.matches.reduce((n,m)=>n+m.scoreA+m.scoreB,0)}\\nמלך הערב: ${king}\\nזוג הערב: ${pair}\\nמלך הבורקסים: ${borekas}\\nהרצף הבולט: ${streakName}\\nהתוצאה של הערב: ${biggestText}\\n\\nכל המשחקים:\\n${matchLines}\\n${quotes?`\\nציטוטים אמיתיים מהערב:\\n${quotes}\\n`:''}\\nהפוך את הנתונים לסצנה קומית אחת עם סיפור ברור והבלט את הרגע/היריבות הכי מצחיקים. מותר להמציא מטאפורות ויזואליות, כותרות עיתון ואלמנטים קומיים, אבל אסור להמציא תוצאות, שערים, אירועים או ציטוטים שלא מופיעים כאן. שמור את שמות השחקנים והתוצאות בדיוק. אם מצורפות תמונות reference של השחקנים, השתמש בהן כדי לשמור על הדמויות והפנים שלהם. אם אין תמונות, צור דמויות ספורטיביות כלליות ואל תטען שהן דומות לשחקנים האמיתיים. הטקסט המרכזי בפוסטר צריך להיות קצר וקריא בעברית.`;
     try{await navigator.clipboard.writeText(prompt)}catch{const area=document.createElement('textarea');area.value=prompt;document.body.appendChild(area);area.select();document.execCommand('copy');area.remove()}
   }
 
