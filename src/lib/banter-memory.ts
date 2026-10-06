@@ -87,6 +87,7 @@ export const banterMemories: readonly BanterMemory[] = [
   {id:'pastry-full',text:'אך שבע מבורקסים',speaker:'יעקב',date:'4.10.2026',trigger:'technical',context:'בורקס בשפת הקבוצה הוא טכני שקיבלת'},
   {id:'pastry-count',text:'מה עם בורקסים שחולקו במהלך  הערב',speaker:'גלעד',date:'4.10.2026',trigger:'technical',context:'בקשה להצגת הבורקסים בסטטיסטיקות'},
   {id:'always-first',text:'מעניין שתמיד אתה מקום ראשון איכשהו',speaker:'ישראל',date:'4.10.2026',trigger:'archive',context:'עקיצה על טבלת הדירוג; צריך להציג נוסחה שקופה'},
+  {id:'legendary-night',text:'יהיה ערב פיפא לפנתיאון היום',speaker:'יעקב',date:'16.4.2026',trigger:'promise',context:'הבטחה חגיגית לפני ערב פיפא'},
 ] as const;
 
 export interface SuggestedMemory { memory: BanterMemory; reason: string }
