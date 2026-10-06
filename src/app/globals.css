@@ -49,3 +49,22 @@
  .live-night .team-player-dot{display:none}
  .live-night .score-number{font-size:78px}
 }
+
+.live-result-section{margin-top:14px!important;padding:14px;border:1px solid #ffffff10;border-radius:20px;background:#ffffff04}
+.live-result-section .section-head{margin-bottom:10px}
+.live-result-section .section-head h2{margin-top:2px}
+.live-step-label{display:block;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.live-detail-toggle{opacity:.78}
+.live-action-panel{display:flex;flex-direction:column;gap:8px}
+.live-action-hint{text-align:center;font-size:11px;color:var(--muted)}
+.live-night .mode-row{gap:7px}
+.live-night .mode-row .pill{min-height:42px;flex:1;justify-content:center}
+@media(max-width:720px){
+ .live-night .page-sub{display:none}
+ .live-night .eyebrow{margin-bottom:4px}
+ .live-night .match-top{padding:9px 12px}
+ .live-night .bench-strip{margin-top:0}
+ .live-result-section{margin-top:10px!important}
+ .live-detail-toggle{font-size:11px}
+ .live-action-hint{padding-bottom:2px}
+}
