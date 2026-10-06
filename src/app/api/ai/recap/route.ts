@@ -51,7 +51,10 @@ export async function POST(request: Request) {
       })).filter(pair => pair.played),
       completedRounds: getRoundProgress(session.matches).completed.map(round => round.pair.map(name)),
       quotesFromNight: (session.quotes ?? []).slice(-6).map(quote => ({player:name(quote.playerId),text:quote.text,matchNumber:quote.matchNumber})),
-      archive: suggestBanterMemories(session).slice(0,3).map(({memory,reason}) => ({text:memory.text,speaker:memory.speaker,date:memory.date,whyRelevant:reason})),
+      archive: [
+        ...suggestBanterMemories(session).slice(0,3).map(({memory,reason}) => ({text:memory.text,speaker:memory.speaker,date:memory.date,whyRelevant:reason})),
+        ...(session.quotes ?? []).slice(-6).map(quote => ({text:quote.text,speaker:name(quote.playerId),date:quote.createdAt,whyRelevant:`נשמר באפליקציה לפני משחק ${quote.matchNumber}`})),
+      ],
       writingVoices: groupVoiceNotes(roster),
     };
     const { text } = await generateText({
