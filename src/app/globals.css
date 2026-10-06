@@ -136,3 +136,20 @@
 .commentator-card.muted-card p{margin:0;color:var(--muted);line-height:1.55}
 .punchline-sheet .commentator-action{min-height:56px;margin-top:4px}
 .punchline-sheet .sheet-close{display:flex;align-items:center;justify-content:center;gap:6px}
+
+/* Night poster — shareable end-of-night payoff */
+.poster-section .section-head svg{color:var(--gold)}
+.night-poster{position:relative;overflow:hidden;padding:26px 18px 20px;border:1px solid #ffffff16;border-radius:24px;background:radial-gradient(circle at 15% 0,#315f8245,transparent 38%),radial-gradient(circle at 90% 100%,#704d5545,transparent 42%),linear-gradient(160deg,#18283f,#0d1522 58%,#211b29);box-shadow:0 20px 50px #0005;text-align:center}
+.night-poster:before{content:'';position:absolute;inset:0;background:linear-gradient(120deg,transparent 30%,#ffffff08 50%,transparent 70%);pointer-events:none}
+.poster-brand{font-size:10px;font-weight:950;letter-spacing:.22em;color:var(--gold);direction:ltr}
+.night-poster h3{font-size:28px;letter-spacing:-.05em;margin:7px 0 3px}
+.night-poster>p{font-size:11px;color:var(--muted);margin-bottom:19px}
+.poster-awards{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.poster-awards>div{min-height:112px;padding:13px 8px;border:1px solid #ffffff12;border-radius:17px;background:#ffffff08;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:24px}
+.poster-awards small{display:block;margin:5px 0 2px;color:var(--muted);font-size:9px;font-weight:900}
+.poster-awards strong{font-size:14px}
+.poster-demolition{margin-top:9px;padding:15px;border:1px solid #ef7e7e25;border-radius:17px;background:#8f3e4617;display:grid;gap:6px}
+.poster-demolition small{color:#ffb1a9;font-size:10px;font-weight:950}
+.poster-demolition strong{font-size:15px;line-height:1.45}
+.night-poster footer{margin-top:20px;color:var(--gold);font-size:11px;font-weight:900}
+.poster-share{margin-top:10px;min-height:56px;display:flex;align-items:center;justify-content:center;gap:8px}
