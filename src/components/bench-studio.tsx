@@ -36,19 +36,28 @@ export function CommentaryStrip({ session, players, onOpen }: { session: Session
   </button>;
 }
 
-function ArchiveLibrary({session}:{session:Session|null}) {
+function ArchiveLibrary({session,sessions,players}:{session:Session|null;sessions:Session[];players:Player[]}) {
   const [search,setSearch] = useState('');
   const suggested = session ? suggestBanterMemories(session) : [];
-  const matching = banterMemories.filter(memory => `${memory.text} ${memory.speaker} ${memory.context}`.includes(search.trim()));
-  return <section className="section"><div className="section-head"><h2>מהארכיון של החבורה</h2><span className="badge">{banterMemories.length} משפטים נבחרים</span></div>
-    <p className="small muted">משפטים אמיתיים מהצ׳אט, עם מקור ותאריך. בזמן משחק נציע את אלה שמתאימים לנתונים.</p>
+  const savedQuotes = sessions.flatMap(night => (night.quotes ?? []).map(quote => ({
+    id: `night-${night.id}-${quote.id}`,
+    text: quote.text,
+    speaker: playerName(players, quote.playerId),
+    date: night.date,
+    context: `${night.title} · לפני משחק ${quote.matchNumber}`
+  })));
+  const archive = [...savedQuotes, ...banterMemories];
+  const matching = archive.filter(memory => `${memory.text} ${memory.speaker} ${memory.context}`.includes(search.trim()));
+  return <section className="section"><div className="section-head"><h2>מהארכיון של החבורה</h2><span className="badge">{archive.length} משפטים</span></div>
+    <p className="small muted">משפטים שנשמרו בערבי FIFA יחד עם המשפטים הנבחרים מהצ׳אט, עם מקור ותאריך.</p>
     {suggested.length > 0 && <div className="archive-suggestions">{suggested.map(({memory,reason}) => <article className="archive-memory" key={memory.id}><span className="archive-reason">{reason}</span><blockquote>״{memory.text}״</blockquote><small>{memory.speaker} · {memory.date}</small></article>)}</div>}
-    <details className="archive-all"><summary>כל {banterMemories.length} המשפטים שנבחרו מהצ׳אט</summary><div className="archive-all-content"><label htmlFor="archive-search">חיפוש לפי משפט, שם או נושא</label><input id="archive-search" className="input" value={search} onChange={event => setSearch(event.target.value)} placeholder="למשל: סבב, טכני, גלעד"/><div className="archive-all-list">{matching.length ? matching.map(memory => <div key={memory.id}><strong>״{memory.text}״</strong><small>{memory.speaker} · {memory.date} · {memory.context}</small></div>) : <div className="empty">לא נמצא משפט מתאים. נסו מילה אחרת.</div>}</div></div></details>
+    <details className="archive-all"><summary>כל {archive.length} המשפטים בארכיון</summary><div className="archive-all-content"><label htmlFor="archive-search">חיפוש לפי משפט, שם או נושא</label><input id="archive-search" className="input" value={search} onChange={event => setSearch(event.target.value)} placeholder="למשל: סבב, טכני, גלעד"/><div className="archive-all-list">{matching.length ? matching.map(memory => <div key={memory.id}><strong>״{memory.text}״</strong><small>{memory.speaker} · {memory.date} · {memory.context}</small></div>) : <div className="empty">לא נמצא משפט מתאים. נסו מילה אחרת.</div>}</div></div></details>
   </section>;
 }
 
-export function BenchStudio({ session, players, onSaveQuote, onRemoveQuote, busy }: {
+export function BenchStudio({ session, sessions, players, onSaveQuote, onRemoveQuote, busy }: {
   session: Session | null;
+  sessions: Session[];
   players: Player[];
   onSaveQuote: (playerId: string, text: string) => Promise<void>;
   onRemoveQuote: (quoteId: string) => Promise<void>;
@@ -57,7 +66,7 @@ export function BenchStudio({ session, players, onSaveQuote, onRemoveQuote, busy
   const [speaker, setSpeaker] = useState('');
   const [quote, setQuote] = useState('');
   const [copied, setCopied] = useState(false);
-  if (!session) return <main className="bench-page"><div className="eyebrow"><MessageSquareText size={15}/> מהספסל</div><h1 className="page-title">הפרנג׳ס עוד לא התיישב.</h1><p className="page-sub">כשיתחיל ערב, כאן יהיו העובדות שאפשר להוציא באמצע המשחק.</p><ArchiveLibrary session={null}/></main>;
+  if (!session) return <main className="bench-page"><div className="eyebrow"><MessageSquareText size={15}/> מהספסל</div><h1 className="page-title">הפרנג׳ס עוד לא התיישב.</h1><p className="page-sub">כשיתחיל ערב, כאן יהיו העובדות שאפשר להוציא באמצע המשחק.</p><ArchiveLibrary session={null} sessions={sessions} players={players}/></main>;
 
   const bench = session.lineup.bench;
   const round = getRoundProgress(session.matches);
@@ -97,7 +106,7 @@ export function BenchStudio({ session, players, onSaveQuote, onRemoveQuote, busy
       </div>
     </section>
 
-    <ArchiveLibrary session={session}/>
+    <ArchiveLibrary session={session} sessions={sessions} players={players}/>
 
     {bench.length > 0 && <section className="section"><div className="section-head"><h2>התיק של הפרנג׳ס</h2></div><div className="bench-player-list">{bench.map(id => {
       const technicals = getTechnicalStats(session.matches, id);
