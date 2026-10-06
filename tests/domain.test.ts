@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { completeMatch, determineWinner, getHeadToHead, getPairStats, getPlayerStats, getRoundProgress, getTechnicalStats, reviseMatchResult, rotateLineup, shuffleLineup, undoLastMatch, validateLineup, type Lineup, type Session } from '../src/lib/domain';
+import { completeMatch, determineWinner, getCurrentCourtTenure, getHeadToHead, getPairStats, getPlayerStats, getRotationDecision, getRoundProgress, getTechnicalStats, reviseMatchResult, rotateLineup, shuffleLineup, skipNextBenchPlayer, undoLastMatch, validateLineup, type Lineup, type Session } from '../src/lib/domain';
 const lineup:Lineup={A:['a','b'],B:['c','d'],bench:['e']};
 const now='2026-10-01T18:00:00.000Z';
 function session():Session{return {id:'night',title:'Test',date:'2026-10-01',startedAt:now,status:'active',playerIds:['a','b','c','d','e'],lineup:{A:['a','b'],B:['c','d'],bench:['e']},scoreA:0,scoreB:0,matchStartedAt:now,matches:[],version:1,updatedAt:now}}
@@ -41,4 +41,28 @@ test('round progress names each opposing pair and only marks distinct beaten pai
   ]);
   s=completeMatch(s,{scoreA:1,scoreB:0,resultType:'normal',leavingPlayerId:'d'});
   assert.equal(getRoundProgress(s.matches).beaten,2);
+});
+
+test('equal current court tenure requires shuffle',()=>{
+  const decision=getRotationDecision([],lineup,'A');
+  assert.equal(decision.requiresShuffle,true);
+  assert.equal(decision.leavingPlayerId,undefined);
+  assert.deepEqual(decision.tenures,{c:1,d:1});
+  assert.equal(decision.nextBenchPlayerId,'e');
+});
+test('the loser with the longer current uninterrupted court run leaves',()=>{
+  let s=session();
+  s=completeMatch(s,{scoreA:1,scoreB:0,resultType:'normal',leavingPlayerId:'c'});
+  s=completeMatch(s,{scoreA:1,scoreB:0,resultType:'normal',leavingPlayerId:'d'});
+  const decision=getRotationDecision(s.matches,s.lineup,'B');
+  assert.equal(getCurrentCourtTenure(s.matches,s.lineup,'a'),3);
+  assert.equal(getCurrentCourtTenure(s.matches,s.lineup,'c'),1);
+  assert.equal(decision.requiresShuffle,false);
+  assert.equal(decision.leavingPlayerId,'a');
+});
+test('bench skip rotates the queue without changing the four players on court',()=>{
+  const current={A:['a','b'],B:['c','d'],bench:['e','f','g']};
+  const next=skipNextBenchPlayer(current);
+  assert.deepEqual(next,{A:['a','b'],B:['c','d'],bench:['f','g','e']});
+  assert.deepEqual(current,{A:['a','b'],B:['c','d'],bench:['e','f','g']});
 });
