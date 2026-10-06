@@ -15,6 +15,7 @@ export function MatchPunchline({ match, players, onClose, onGenerated }: {
   const [punchline, setPunchline] = useState(match.punchline || '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [context, setContext] = useState('');
 
   async function generate(regenerate = false) {
     setBusy(true);
@@ -23,7 +24,7 @@ export function MatchPunchline({ match, players, onClose, onGenerated }: {
       const response = await fetch('/api/ai/punchline', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: match.sessionId, matchId: match.id, regenerate }),
+        body: JSON.stringify({ sessionId: match.sessionId, matchId: match.id, regenerate, context: context.trim() || undefined }),
         cache: 'no-store',
       });
       const body = await response.json();
@@ -49,6 +50,11 @@ export function MatchPunchline({ match, players, onClose, onGenerated }: {
         <span>{teamA}</span><strong dir="ltr">{match.scoreA} : {match.scoreB}</strong><span>{teamB}</span>
       </div>
       {punchline ? <div className="commentator-card"><span>🎙️ פרשן הבית</span><p className="punchline-text" aria-live="polite">{punchline}</p></div> : <div className="commentator-card muted-card"><span>🎙️ פרשן הבית</span><p>התוצאה בפנים. עכשיו תנו ל־AI לפתוח את הפה.</p></div>}
+      <div className="field" style={{marginTop:14}}>
+        <label htmlFor={`commentator-context-${match.id}`}>🎙️ תן חומר לפרשן</label>
+        <textarea id={`commentator-context-${match.id}`} className="input" rows={3} maxLength={600} value={context} onChange={event => setContext(event.target.value)} placeholder="מה קרה במשחק שהפרשן צריך לדעת? למשל: יעקב הכניס עצמי וגילעד לא הפסיק לצחוק עליו…"/>
+        <small className="muted">אפשר לכתוב מה קרה, על מי לרדת, או איזה כיוון לתת לעקיצה.</small>
+      </div>
       {error && <p className="error-text" role="alert">{error}</p>}
       <button className="primary-btn" disabled={busy} onClick={() => generate(Boolean(punchline))}>{punchline?<RefreshCw size={18}/>:<Sparkles size={18}/>} {busy ? 'הפרשן מתחמם…' : punchline ? '🔥 תן עקיצה אחרת' : '🎙️ תן לפרשן לדבר'}</button>
       <button className="sheet-close" onClick={onClose}>למשחק הבא <ArrowLeft size={16}/></button>
