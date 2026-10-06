@@ -8,6 +8,7 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
+    "qa": "npm run test && npm run typecheck",
     "seed": "tsx scripts/seed.ts",
     "db:indexes": "tsx scripts/indexes.ts"
   },
