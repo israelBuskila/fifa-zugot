@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart3, ChevronLeft, History, LogOut, MessageSquareText, RotateCcw, Swords, Users, WifiOff, X } from 'lucide-react';
+import { BarChart3, ChevronLeft, History, LogOut, MessageSquareText, RotateCcw, Shuffle, Swords, Users, WifiOff, X } from 'lucide-react';
 import { type Group, type Lineup, type Match, type MatchEvent, type Player, type ResultType, type Session, type Team } from '@/lib/domain';
 import { MatchPunchline } from '@/components/match-punchline';
 import { InstallApp } from '@/components/install-app';
