@@ -7,7 +7,7 @@ import { MatchPunchline } from '@/components/match-punchline';
 import { InstallApp } from '@/components/install-app';
 import { BenchStudio, CommentaryStrip } from '@/components/bench-studio';
 import { TechnicalSummary } from '@/components/technical-summary';
-import { GameRow, RoundStatus, SessionRow, SessionSummary, TeamPanel } from '@/components/game-ui';
+import { eventLabel, GameRow, resultLabel, RoundStatus, SessionRow, SessionSummary, TeamPanel } from '@/components/game-ui';
 type Tab='live'|'bench'|'history'|'stats'|'players';
 type Bootstrap={players:Player[];groups:Group[];sessions:Session[]};
 type Action=Record<string,unknown>&{type:string};
