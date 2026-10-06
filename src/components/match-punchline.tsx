@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Sparkles } from 'lucide-react';
 import type { Match, Player } from '@/lib/domain';
 
 const nameOf = (players: Player[], id: string) => players.find(player => player.id === id)?.nickname || players.find(player => player.id === id)?.name || 'שחקן';
@@ -43,15 +43,15 @@ export function MatchPunchline({ match, players, onClose, onGenerated }: {
   return <div className="sheet-backdrop" onClick={onClose}>
     <section className="sheet punchline-sheet" role="dialog" aria-modal="true" aria-labelledby="punchline-title" onClick={event => event.stopPropagation()}>
       <div className="sheet-grip"/>
-      <div className="eyebrow"><Sparkles size={15}/> משחק #{match.sequenceNumber} הסתיים</div>
-      <h2 id="punchline-title">יש לנו תוצאה. יש גם פאנץ׳?</h2>
+      <div className="eyebrow"><Sparkles size={15}/> שריקת הסיום · משחק #{match.sequenceNumber}</div>
+      <h2 id="punchline-title">נגמר. עכשיו אפשר לדבר.</h2>
       <div className="punchline-result">
         <span>{teamA}</span><strong dir="ltr">{match.scoreA} : {match.scoreB}</strong><span>{teamB}</span>
       </div>
-      {punchline ? <p className="punchline-text" aria-live="polite">{punchline}</p> : <p>אפשר ליצור פאנץ׳ מצחיק של כשלוש שורות על המשחק שנשמר. המשחק הבא כבר מוכן.</p>}
+      {punchline ? <div className="commentator-card"><span>🎙️ פרשן הבית</span><p className="punchline-text" aria-live="polite">{punchline}</p></div> : <div className="commentator-card muted-card"><span>🎙️ פרשן הבית</span><p>התוצאה בפנים. עכשיו תנו ל־AI לפתוח את הפה.</p></div>}
       {error && <p className="error-text" role="alert">{error}</p>}
-      <button className="primary-btn" disabled={busy} onClick={() => generate(Boolean(punchline))}><Sparkles size={18}/>{busy ? 'מכין פאנץ׳…' : punchline ? 'עוד פאנץ׳ בסגנון אחר' : 'צרו פאנץ׳ למשחק'}</button>
-      <button className="sheet-close" onClick={onClose}>{punchline ? 'למשחק הבא' : 'דלגו למשחק הבא'}</button>
+      <button className="primary-btn" disabled={busy} onClick={() => generate(Boolean(punchline))}>{punchline?<RefreshCw size={18}/>:<Sparkles size={18}/>} {busy ? 'הפרשן מתחמם…' : punchline ? '🔥 תן עקיצה אחרת' : '🎙️ תן לפרשן לדבר'}</button>
+      <button className="sheet-close" onClick={onClose}>למשחק הבא <ArrowLeft size={16}/></button>
     </section>
   </div>;
 }
