@@ -14,7 +14,7 @@ const action=z.discriminatedUnion('type',[
   z.object({type:z.literal('group.save'),name:z.string().trim().min(1).max(50),playerIds:z.array(id).min(4)}),
   z.object({type:z.literal('session.start'),title:z.string().trim().min(1).max(80),playerIds:z.array(id).min(4),lineup}),
   z.object({type:z.literal('session.score'),sessionId:id,version:z.number().int(),scoreA:z.number().int().min(0).max(99),scoreB:z.number().int().min(0).max(99)}),
-  z.object({type:z.literal('session.complete'),sessionId:id,version:z.number().int(),scoreA:z.number().int().min(0).max(99),scoreB:z.number().int().min(0).max(99),resultType:z.enum(['normal','penalties','technical']),selectedWinner:z.enum(['A','B']).optional(),technicalMinute,leavingPlayerId:id.optional(),events:events.optional()}),
+  z.object({type:z.literal('session.complete'),sessionId:id,version:z.number().int(),scoreA:z.number().int().min(0).max(99),scoreB:z.number().int().min(0).max(99),resultType:z.enum(['normal','penalties','technical']),selectedWinner:z.enum(['A','B']).optional(),technicalMinute,leavingPlayerId:id.optional(),skipRotation:z.boolean().optional(),events:events.optional()}),
   z.object({type:z.literal('session.undo'),sessionId:id,version:z.number().int()}),
   z.object({type:z.literal('session.bench.skip'),sessionId:id,version:z.number().int()}),
   z.object({type:z.literal('session.player.add'),sessionId:id,version:z.number().int(),playerId:id}),
@@ -69,7 +69,7 @@ export async function POST(request:Request) {
       await db.sessions.insertOne(session);return NextResponse.json({session});
     }
     if(data.type==='session.score')return updateSession(data.sessionId,data.version,s=>{if(s.status!=='active')throw new DomainError('הערב הסתיים.');return {...s,scoreA:data.scoreA,scoreB:data.scoreB,version:s.version+1,updatedAt:now};});
-    if(data.type==='session.complete')return updateSession(data.sessionId,data.version,s=>completeMatch(s,{scoreA:data.scoreA,scoreB:data.scoreB,resultType:data.resultType,selectedWinner:data.selectedWinner,technicalMinute:data.technicalMinute,leavingPlayerId:data.leavingPlayerId,events:data.events as MatchEvent[]|undefined},now));
+    if(data.type==='session.complete')return updateSession(data.sessionId,data.version,s=>completeMatch(s,{scoreA:data.scoreA,scoreB:data.scoreB,resultType:data.resultType,selectedWinner:data.selectedWinner,technicalMinute:data.technicalMinute,leavingPlayerId:data.leavingPlayerId,skipRotation:data.skipRotation,events:data.events as MatchEvent[]|undefined},now));
     if(data.type==='session.undo')return updateSession(data.sessionId,data.version,s=>undoLastMatch(s,now));
     if(data.type==='session.bench.skip')return updateSession(data.sessionId,data.version,s=>{if(s.status!=='active')throw new DomainError('הערב הסתיים.');return {...s,lineup:skipNextBenchPlayer(s.lineup),version:s.version+1,updatedAt:now};});
     if(data.type==='session.player.add')return updateSession(data.sessionId,data.version,s=>{if(s.status!=='active')throw new DomainError('הערב הסתיים.');if(s.playerIds.includes(data.playerId))throw new DomainError('השחקן כבר משתתף בערב.');return {...s,playerIds:[...s.playerIds,data.playerId],lineup:{...s.lineup,bench:[...s.lineup.bench,data.playerId]},version:s.version+1,updatedAt:now};});
