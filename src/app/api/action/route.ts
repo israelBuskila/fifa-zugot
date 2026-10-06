@@ -7,17 +7,20 @@ export const dynamic='force-dynamic';
 const id=z.string().uuid();
 const lineup=z.object({A:z.array(id).length(2),B:z.array(id).length(2),bench:z.array(id)});
 const events=z.array(z.object({id, type:z.enum(['goal','own_goal','penalty','technical','funny']),playerId:id.optional(),team:z.enum(['A','B']).optional(),minute:z.number().int().min(0).max(130).optional(),text:z.string().max(200).optional()})).max(100);
+const technicalMinute=z.number().int().min(0).max(130).optional();
 const action=z.discriminatedUnion('type',[
   z.object({type:z.literal('player.add'),name:z.string().trim().min(1).max(40),nickname:z.string().trim().max(40).optional()}),
   z.object({type:z.literal('player.update'),id,name:z.string().trim().min(1).max(40),nickname:z.string().trim().max(40).optional(),active:z.boolean()}),
   z.object({type:z.literal('group.save'),name:z.string().trim().min(1).max(50),playerIds:z.array(id).min(4)}),
   z.object({type:z.literal('session.start'),title:z.string().trim().min(1).max(80),playerIds:z.array(id).min(4),lineup}),
   z.object({type:z.literal('session.score'),sessionId:id,version:z.number().int(),scoreA:z.number().int().min(0).max(99),scoreB:z.number().int().min(0).max(99)}),
-  z.object({type:z.literal('session.complete'),sessionId:id,version:z.number().int(),scoreA:z.number().int().min(0).max(99),scoreB:z.number().int().min(0).max(99),resultType:z.enum(['normal','penalties','technical']),selectedWinner:z.enum(['A','B']).optional(),leavingPlayerId:id.optional(),events:events.optional()}),
+  z.object({type:z.literal('session.complete'),sessionId:id,version:z.number().int(),scoreA:z.number().int().min(0).max(99),scoreB:z.number().int().min(0).max(99),resultType:z.enum(['normal','penalties','technical']),selectedWinner:z.enum(['A','B']).optional(),technicalMinute,leavingPlayerId:id.optional(),events:events.optional()}),
   z.object({type:z.literal('session.undo'),sessionId:id,version:z.number().int()}),
   z.object({type:z.literal('session.end'),sessionId:id,version:z.number().int()}),
   z.object({type:z.literal('session.lineup'),sessionId:id,version:z.number().int(),playerIds:z.array(id).min(4),lineup}),
-  z.object({type:z.literal('match.edit'),sessionId:id,version:z.number().int(),matchId:id,scoreA:z.number().int().min(0).max(99),scoreB:z.number().int().min(0).max(99),resultType:z.enum(['normal','penalties','technical']),selectedWinner:z.enum(['A','B']).optional()}),
+  z.object({type:z.literal('quote.add'),sessionId:id,version:z.number().int(),playerId:id,text:z.string().trim().min(2).max(180)}),
+  z.object({type:z.literal('quote.remove'),sessionId:id,version:z.number().int(),quoteId:id}),
+  z.object({type:z.literal('match.edit'),sessionId:id,version:z.number().int(),matchId:id,scoreA:z.number().int().min(0).max(99),scoreB:z.number().int().min(0).max(99),resultType:z.enum(['normal','penalties','technical']),selectedWinner:z.enum(['A','B']).optional(),technicalMinute}),
 ]);
 function jsonError(message:string,status=400){return NextResponse.json({error:message},{status});}
 async function updateSession(sessionId:string, version:number, modify:(session:Session)=>Session) {
@@ -63,13 +66,23 @@ export async function POST(request:Request) {
       await db.sessions.insertOne(session);return NextResponse.json({session});
     }
     if(data.type==='session.score')return updateSession(data.sessionId,data.version,s=>{if(s.status!=='active')throw new DomainError('הערב הסתיים.');return {...s,scoreA:data.scoreA,scoreB:data.scoreB,version:s.version+1,updatedAt:now};});
-    if(data.type==='session.complete')return updateSession(data.sessionId,data.version,s=>completeMatch(s,{scoreA:data.scoreA,scoreB:data.scoreB,resultType:data.resultType,selectedWinner:data.selectedWinner,leavingPlayerId:data.leavingPlayerId,events:data.events as MatchEvent[]|undefined},now));
+    if(data.type==='session.complete')return updateSession(data.sessionId,data.version,s=>completeMatch(s,{scoreA:data.scoreA,scoreB:data.scoreB,resultType:data.resultType,selectedWinner:data.selectedWinner,technicalMinute:data.technicalMinute,leavingPlayerId:data.leavingPlayerId,events:data.events as MatchEvent[]|undefined},now));
     if(data.type==='session.undo')return updateSession(data.sessionId,data.version,s=>undoLastMatch(s,now));
     if(data.type==='session.end')return updateSession(data.sessionId,data.version,s=>({...s,status:'ended',endedAt:now,version:s.version+1,updatedAt:now}));
     if(data.type==='session.lineup')return updateSession(data.sessionId,data.version,s=>{if(s.status!=='active')throw new DomainError('הערב הסתיים.');validateLineup(data.playerIds,data.lineup);return {...s,playerIds:data.playerIds,lineup:data.lineup,version:s.version+1,updatedAt:now};});
+    if(data.type==='quote.add')return updateSession(data.sessionId,data.version,s=>{
+      if(s.status!=='active')throw new DomainError('הערב הסתיים.');
+      if(!s.playerIds.includes(data.playerId))throw new DomainError('השחקן אינו משתתף בערב.');
+      return {...s,quotes:[...(s.quotes??[]),{id:crypto.randomUUID(),playerId:data.playerId,text:data.text,createdAt:now,matchNumber:s.matches.length+1}],version:s.version+1,updatedAt:now};
+    });
+    if(data.type==='quote.remove')return updateSession(data.sessionId,data.version,s=>{
+      if(s.status!=='active')throw new DomainError('הערב הסתיים.');
+      if(!s.quotes?.some(quote=>quote.id===data.quoteId))throw new DomainError('המשפט לא נמצא.');
+      return {...s,quotes:s.quotes.filter(quote=>quote.id!==data.quoteId),version:s.version+1,updatedAt:now};
+    });
     if(data.type==='match.edit')return updateSession(data.sessionId,data.version,s=>{
       const index=s.matches.findIndex(m=>m.id===data.matchId);if(index<0)throw new DomainError('המשחק לא נמצא.');
-      const matches=[...s.matches];matches[index]=reviseMatchResult(matches[index],data.scoreA,data.scoreB,data.resultType,data.selectedWinner);
+      const matches=[...s.matches];matches[index]=reviseMatchResult(matches[index],data.scoreA,data.scoreB,data.resultType,data.selectedWinner,data.technicalMinute);
       return {...s,matches,version:s.version+1,updatedAt:now};
     });
     return jsonError('פעולה לא נתמכת.');

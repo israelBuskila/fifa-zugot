@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { completeMatch, determineWinner, getHeadToHead, getPairStats, getPlayerStats, getRoundProgress, reviseMatchResult, rotateLineup, shuffleLineup, undoLastMatch, validateLineup, type Lineup, type Session } from '../src/lib/domain';
+import { completeMatch, determineWinner, getHeadToHead, getPairStats, getPlayerStats, getRoundProgress, getTechnicalStats, reviseMatchResult, rotateLineup, shuffleLineup, undoLastMatch, validateLineup, type Lineup, type Session } from '../src/lib/domain';
 const lineup:Lineup={A:['a','b'],B:['c','d'],bench:['e']};
 const now='2026-10-01T18:00:00.000Z';
 function session():Session{return {id:'night',title:'Test',date:'2026-10-01',startedAt:now,status:'active',playerIds:['a','b','c','d','e'],lineup:{A:['a','b'],B:['c','d'],bench:['e']},scoreA:0,scoreB:0,matchStartedAt:now,matches:[],version:1,updatedAt:now}}
@@ -15,3 +15,30 @@ test('editing a result clears its saved punchline while preserving the played li
 test('a pair completes a round only after beating every distinct opposing pair',()=>{let s=session();s=completeMatch(s,{scoreA:1,scoreB:0,resultType:'normal',leavingPlayerId:'c'});s=completeMatch(s,{scoreA:1,scoreB:0,resultType:'normal',leavingPlayerId:'d'});assert.deepEqual(getRoundProgress(s.matches).completed,[]);assert.equal(getRoundProgress(s.matches).beaten,2);s=completeMatch(s,{scoreA:1,scoreB:0,resultType:'normal',leavingPlayerId:'e'});const progress=getRoundProgress(s.matches);assert.equal(progress.completed.length,1);assert.deepEqual(progress.completed[0].pair,['a','b']);assert.equal(progress.beaten,0);assert.equal(progress.required,3);});
 test('a draw interrupts a pairs round streak',()=>{let s=session();s=completeMatch(s,{scoreA:1,scoreB:0,resultType:'normal',leavingPlayerId:'c'});s=completeMatch(s,{scoreA:1,scoreB:0,resultType:'normal',leavingPlayerId:'d'});s=completeMatch(s,{scoreA:0,scoreB:0,resultType:'normal'});s=completeMatch(s,{scoreA:1,scoreB:0,resultType:'normal',leavingPlayerId:'e'});const progress=getRoundProgress(s.matches);assert.equal(progress.completed.length,0);assert.equal(progress.beaten,1);assert.equal(progress.required,3);});
 test('pair, opponent and streak calculations use match history',()=>{let s=session();s=completeMatch(s,{scoreA:3,scoreB:1,resultType:'normal',leavingPlayerId:'c'},'2026-10-01T18:20:00.000Z');s=completeMatch(s,{scoreA:1,scoreB:2,resultType:'normal',leavingPlayerId:'a'},'2026-10-01T18:40:00.000Z');const a=getPlayerStats(s.matches,'a');assert.equal(a.played,2);assert.equal(a.wins,1);assert.equal(a.losses,1);assert.equal(a.longestWinningStreak,1);assert.equal(a.losingStreak,1);const pair=getPairStats(s.matches,'a','b');assert.equal(pair.played,2);assert.equal(pair.wins,1);const h2h=getHeadToHead(s.matches,'a','d');assert.deepEqual(h2h,{played:2,firstWins:1,secondWins:1,draws:0});});
+test('technical is exactly 3:0, ends with the matching winner, and preserves its match minute',()=>{
+  assert.throws(()=>determineWinner(3,0,'normal'));
+  assert.throws(()=>determineWinner(4,1,'technical','A'));
+  assert.throws(()=>determineWinner(3,0,'technical','B'));
+  let s=session();
+  s=completeMatch(s,{scoreA:3,scoreB:0,resultType:'technical',technicalMinute:19,leavingPlayerId:'c'});
+  assert.equal(s.matches[0].technicalMinute,19);
+  assert.equal(s.matches[0].winner,'A');
+  assert.deepEqual(getTechnicalStats(s.matches,'a'),{given:1,received:0,fastest:19});
+  assert.deepEqual(getTechnicalStats(s.matches,'c'),{given:0,received:1,fastest:undefined});
+  assert.deepEqual(getTechnicalStats(s.matches,'d'),{given:0,received:1,fastest:undefined});
+  assert.throws(()=>completeMatch(session(),{scoreA:3,scoreB:0,resultType:'technical',technicalMinute:131,leavingPlayerId:'c'}));
+  const edited=reviseMatchResult(s.matches[0],2,1,'normal');
+  assert.equal(edited.technicalMinute,undefined);
+});
+test('round progress names each opposing pair and only marks distinct beaten pairs',()=>{
+  let s=session();
+  s=completeMatch(s,{scoreA:1,scoreB:0,resultType:'normal',leavingPlayerId:'c'});
+  const first=getRoundProgress(s.matches);
+  assert.deepEqual(first.opponents,[
+    {pair:['c','d'],beaten:true},
+    {pair:['c','e'],beaten:false},
+    {pair:['d','e'],beaten:false},
+  ]);
+  s=completeMatch(s,{scoreA:1,scoreB:0,resultType:'normal',leavingPlayerId:'d'});
+  assert.equal(getRoundProgress(s.matches).beaten,2);
+});

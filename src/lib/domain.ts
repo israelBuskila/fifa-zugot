@@ -4,12 +4,14 @@ export type ResultType = 'normal' | 'penalties' | 'technical';
 export type MatchEventType = 'goal' | 'own_goal' | 'penalty' | 'technical' | 'funny';
 export interface Player { id: string; name: string; nickname?: string; avatar?: string; active: boolean; createdAt: string }
 export interface Group { id: string; name: string; playerIds: string[]; createdAt: string }
+export interface NightQuote { id: string; playerId: string; text: string; createdAt: string; matchNumber: number }
 export interface Lineup { A: string[]; B: string[]; bench: string[] }
 export interface MatchEvent { id: string; type: MatchEventType; playerId?: string; team?: Team; minute?: number; text?: string }
 export interface MatchParticipant { playerId: string; team: Team }
 export interface Match {
   id: string; sessionId: string; sequenceNumber: number; participants: MatchParticipant[];
   scoreA: number; scoreB: number; winner: Team | null; resultType: ResultType;
+  technicalMinute?: number;
   punchline?: string;
   punchlineStyle?: number;
   events: MatchEvent[]; startedAt: string; endedAt: string;
@@ -17,7 +19,7 @@ export interface Match {
 }
 export interface Session {
   id: string; title: string; date: string; startedAt: string; endedAt?: string; status: 'active' | 'ended';
-  notes?: string; playerIds: string[]; lineup: Lineup; scoreA: number; scoreB: number;
+  notes?: string; quotes?: NightQuote[]; playerIds: string[]; lineup: Lineup; scoreA: number; scoreB: number;
   matchStartedAt: string; matches: Match[]; version: number; updatedAt: string;
 }
 export const cloneLineup = (lineup: Lineup): Lineup => ({ A: [...lineup.A], B: [...lineup.B], bench: [...lineup.bench] });
@@ -47,18 +49,31 @@ export function validateLineup(playerIds: string[], lineup: Lineup): void {
 }
 export function determineWinner(scoreA: number, scoreB: number, resultType: ResultType, selected?: Team): Team | null {
   if (!Number.isInteger(scoreA) || !Number.isInteger(scoreB) || scoreA < 0 || scoreB < 0 || scoreA > 99 || scoreB > 99) throw new DomainError('תוצאה לא תקינה.');
+  if (scoreA === 3 && scoreB === 0 || scoreA === 0 && scoreB === 3) {
+    if (resultType !== 'technical') throw new DomainError('משחק שמגיע ל־3:0 מסתיים בטכני.');
+    const winner = scoreA === 3 ? 'A' : 'B';
+    if (selected && selected !== winner) throw new DomainError('המנצח בטכני חייב להתאים לתוצאה.');
+    return winner;
+  }
+  if (resultType === 'technical') throw new DomainError('טכני נרשם רק בתוצאה 3:0.');
   if (resultType !== 'normal') {
     if (!selected) throw new DomainError('יש לבחור קבוצה מנצחת.');
     return selected;
   }
   return scoreA === scoreB ? null : scoreA > scoreB ? 'A' : 'B';
 }
-export function reviseMatchResult(match: Match, scoreA: number, scoreB: number, resultType: ResultType, selected?: Team): Match {
+export function validateTechnicalMinute(resultType: ResultType, minute?: number): void {
+  if (minute !== undefined && (resultType !== 'technical' || !Number.isInteger(minute) || minute < 0 || minute > 130)) {
+    throw new DomainError('דקת טכני חייבת להיות בין 0 ל־130 ורק במשחק טכני.');
+  }
+}
+export function reviseMatchResult(match: Match, scoreA: number, scoreB: number, resultType: ResultType, selected?: Team, technicalMinute?: number): Match {
   const winner = determineWinner(scoreA, scoreB, resultType, selected);
+  validateTechnicalMinute(resultType, technicalMinute);
   const { punchline: ignoredPunchline, punchlineStyle: ignoredStyle, ...rest } = match;
   void ignoredPunchline;
   void ignoredStyle;
-  return { ...rest, scoreA, scoreB, resultType, winner };
+  return { ...rest, scoreA, scoreB, resultType, winner, technicalMinute: resultType === 'technical' ? technicalMinute : undefined };
 }
 export function rotateLineup(lineup: Lineup, winner: Team | null, leavingPlayerId?: string): Lineup {
   const next = cloneLineup(lineup);
@@ -69,15 +84,16 @@ export function rotateLineup(lineup: Lineup, winner: Team | null, leavingPlayerI
   next.bench.push(leavingPlayerId);
   return next;
 }
-export function completeMatch(session: Session, input: { scoreA: number; scoreB: number; resultType: ResultType; selectedWinner?: Team; leavingPlayerId?: string; events?: MatchEvent[] }, now = new Date().toISOString()): Session {
+export function completeMatch(session: Session, input: { scoreA: number; scoreB: number; resultType: ResultType; selectedWinner?: Team; technicalMinute?: number; leavingPlayerId?: string; events?: MatchEvent[] }, now = new Date().toISOString()): Session {
   if (session.status !== 'active') throw new DomainError('הערב כבר הסתיים.');
   validateLineup(session.playerIds, session.lineup);
   const winner = determineWinner(input.scoreA, input.scoreB, input.resultType, input.selectedWinner);
+  validateTechnicalMinute(input.resultType, input.technicalMinute);
   const before = cloneLineup(session.lineup);
   const after = rotateLineup(before, winner, input.leavingPlayerId);
   const match: Match = { id: crypto.randomUUID(), sessionId: session.id, sequenceNumber: session.matches.length + 1,
     participants: [...before.A.map(playerId => ({playerId, team: 'A' as Team})), ...before.B.map(playerId => ({playerId, team: 'B' as Team}))],
-    scoreA: input.scoreA, scoreB: input.scoreB, winner, resultType: input.resultType, events: input.events ?? [],
+    scoreA: input.scoreA, scoreB: input.scoreB, winner, resultType: input.resultType, technicalMinute: input.technicalMinute, events: input.events ?? [],
     startedAt: session.matchStartedAt, endedAt: now, benchBefore: before.bench,
     leavingPlayerId: winner && before.bench.length ? input.leavingPlayerId : undefined,
     lineupBefore: before, lineupAfter: after };
@@ -89,7 +105,7 @@ export function undoLastMatch(session: Session, now = new Date().toISOString()):
   return { ...session, matches: session.matches.slice(0, -1), lineup: cloneLineup(match.lineupBefore),
     scoreA: match.scoreA, scoreB: match.scoreB, matchStartedAt: match.startedAt, updatedAt: now, version: session.version + 1 };
 }
-export interface RoundProgress { completed: { matchId: string; pair: [string, string] }[]; pair: [string, string] | null; beaten: number; required: number }
+export interface RoundProgress { completed: { matchId: string; pair: [string, string] }[]; pair: [string, string] | null; beaten: number; required: number; opponents: {pair:[string,string]; beaten:boolean}[] }
 export function getRoundProgress(matches: Match[]): RoundProgress {
   const completed: RoundProgress['completed'] = [];
   let pair: [string, string] | null = null;
@@ -118,7 +134,20 @@ export function getRoundProgress(matches: Match[]): RoundProgress {
       beaten = new Set();
     }
   }
-  return { completed, pair, beaten: beaten.size, required };
+  const remaining = pair ? rosterKey.split(':').filter(id => !pair!.includes(id)) : [];
+  const opponents = remaining.flatMap((id, index) => remaining.slice(index + 1).map(other => {
+    const rivalPair = [id, other].sort() as [string, string];
+    return {pair:rivalPair, beaten:beaten.has(key(rivalPair))};
+  }));
+  return { completed, pair, beaten: beaten.size, required, opponents };
+}
+export function getTechnicalStats(matches: Match[], playerId: string) {
+  const own = matches.filter(match => match.participants.some(p => p.playerId === playerId));
+  const technicals = own.filter(match => match.resultType === 'technical' && (match.scoreA === 3 && match.scoreB === 0 || match.scoreA === 0 && match.scoreB === 3));
+  const given = technicals.filter(match => match.participants.some(p => p.playerId === playerId && p.team === match.winner));
+  const received = technicals.length - given.length;
+  const fastest = given.map(match => match.technicalMinute).filter((minute):minute is number => minute !== undefined).sort((a,b) => a-b)[0];
+  return {given:given.length, received, fastest};
 }
 export interface PlayerStats { playerId: string; played: number; wins: number; losses: number; draws: number; goalsFor: number; goalsAgainst: number; winRate: number; winningStreak: number; losingStreak: number; longestWinningStreak: number; longestLosingStreak: number }
 export interface PairStats { playerIds: [string, string]; played: number; wins: number; losses: number; draws: number; goalsFor: number; goalsAgainst: number; winRate: number }
