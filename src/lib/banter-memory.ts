@@ -91,6 +91,9 @@ export const banterMemories: readonly BanterMemory[] = [
   {id:'no-fifa-notice',text:'אין פיפא עד הודעה חדשה.',speaker:'גלעד',date:'22.6.2025',trigger:'archive',context:'הודעת הנהלה דרמטית בתקופה בלי ערב סגור'},
   {id:'qa-raanana',text:'זה הצוות qa מרעננה, הוא לא מכיר את השחקנים',speaker:'יעקב',date:'2.7.2026',trigger:'archive',context:'בדיחה על בדיקות האפליקציה ושחקנים לא מוכרים'},
   {id:'full-lineup',text:'מתי פיפא בהרכב מלא?',speaker:'גלעד',date:'20.7.2026',trigger:'archive',context:'אחרי תקופה של ערבים בהרכב חסר'},
+  {id:'winning-bar',text:'שנהיה לבר ניצחא ולא לבר הפסיידא',speaker:'גלעד',date:'11.9.2026',trigger:'loss',context:'איחול בשפת בר הפסידא אחרי תקופה של הפסדים'},
+  {id:'garbage-time',text:'שחקן של גרבז טיימ',speaker:'גלעד',date:'25.9.2026',trigger:'loss',context:'עקיצה על ניצחונות שמגיעים כשהערב כבר הוכרע'},
+  {id:'full-lineup-respect',text:'זה לא סבבה שלאחרונה אנחנו בהרכב חסר',speaker:'ישראל',date:'3.10.2026',trigger:'archive',context:'תלונה על רצף ערבים בלי ההרכב המלא'},
 ] as const;
 
 export interface SuggestedMemory { memory: BanterMemory; reason: string }
