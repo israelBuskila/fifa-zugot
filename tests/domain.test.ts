@@ -80,3 +80,18 @@ test('records count bench appearances, own goals and biggest margins from existi
   assert.equal(records.ownGoalKing?.playerId,'c');
   assert.equal(records.biggestMatch?.id,s.matches[0].id);
 });
+
+test('skipping rotation completes the match atomically and keeps the same four on court',()=>{
+  const start={...session(),lineup:{A:['a','b'],B:['c','d'],bench:['e']}};
+  const done=completeMatch(start,{scoreA:2,scoreB:1,resultType:'normal',skipRotation:true},'2026-10-01T18:20:00.000Z');
+  assert.deepEqual(done.lineup.A,['a','b']);
+  assert.deepEqual(done.lineup.B,['c','d']);
+  assert.deepEqual(done.lineup.bench,['e']);
+  assert.equal(done.matches.length,1);
+  assert.equal(done.matches[0].leavingPlayerId,undefined);
+});
+test('skipping rotation advances a multi-player bench queue while keeping court players',()=>{
+  const start={...session(),playerIds:['a','b','c','d','e','f','g'],lineup:{A:['a','b'],B:['c','d'],bench:['e','f','g']}};
+  const done=completeMatch(start,{scoreA:2,scoreB:1,resultType:'normal',skipRotation:true});
+  assert.deepEqual(done.lineup,{A:['a','b'],B:['c','d'],bench:['f','g','e']});
+});
