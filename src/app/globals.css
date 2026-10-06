@@ -107,3 +107,11 @@
  .setup-night .lineup-grid{gap:7px}
  .setup-night .lineup-card{padding:10px}
 }
+
+.achievement-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:18px 0}
+.achievement-card{min-width:0;padding:14px 12px;border:1px solid #ffffff12;border-radius:18px;background:linear-gradient(160deg,#ffffff0b,#ffffff04);display:flex;flex-direction:column;gap:3px}
+.achievement-icon{font-size:24px;margin-bottom:5px}
+.achievement-title{font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.achievement-card strong{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.achievement-card small{font-size:11px;color:var(--gold);font-weight:800}
+@media(max-width:680px){.achievement-grid{grid-template-columns:repeat(2,1fr)}}
