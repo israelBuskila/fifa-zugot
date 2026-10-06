@@ -88,6 +88,9 @@ export const banterMemories: readonly BanterMemory[] = [
   {id:'pastry-count',text:'מה עם בורקסים שחולקו במהלך  הערב',speaker:'גלעד',date:'4.10.2026',trigger:'technical',context:'בקשה להצגת הבורקסים בסטטיסטיקות'},
   {id:'always-first',text:'מעניין שתמיד אתה מקום ראשון איכשהו',speaker:'ישראל',date:'4.10.2026',trigger:'archive',context:'עקיצה על טבלת הדירוג; צריך להציג נוסחה שקופה'},
   {id:'legendary-night',text:'יהיה ערב פיפא לפנתיאון היום',speaker:'יעקב',date:'16.4.2026',trigger:'promise',context:'הבטחה חגיגית לפני ערב פיפא'},
+  {id:'no-fifa-notice',text:'אין פיפא עד הודעה חדשה.',speaker:'גלעד',date:'22.6.2025',trigger:'archive',context:'הודעת הנהלה דרמטית בתקופה בלי ערב סגור'},
+  {id:'qa-raanana',text:'זה הצוות qa מרעננה, הוא לא מכיר את השחקנים',speaker:'יעקב',date:'2.7.2026',trigger:'archive',context:'בדיחה על בדיקות האפליקציה ושחקנים לא מוכרים'},
+  {id:'full-lineup',text:'מתי פיפא בהרכב מלא?',speaker:'גלעד',date:'20.7.2026',trigger:'archive',context:'אחרי תקופה של ערבים בהרכב חסר'},
 ] as const;
 
 export interface SuggestedMemory { memory: BanterMemory; reason: string }
