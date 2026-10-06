@@ -1,5 +1,5 @@
 import { ChevronLeft, Minus, Plus, Sparkles, Trophy } from 'lucide-react';
-import { getPairStats, getPlayerStats, getRoundProgress, type Match, type Player, type ResultType, type Session, type Team } from '@/lib/domain';
+import { getPairStats, getPlayerStats, getRoundProgress, type Match, type MatchEvent, type Player, type ResultType, type Session, type Team } from '@/lib/domain';
 
 const nameOf=(players:Player[],id:string)=>players.find(p=>p.id===id)?.nickname||players.find(p=>p.id===id)?.name||'שחקן';
 const names=(players:Player[],ids:string[])=>ids.map(id=>nameOf(players,id)).join(' + ');
