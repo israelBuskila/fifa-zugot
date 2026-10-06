@@ -97,3 +97,63 @@ test('skipping rotation advances a multi-player bench queue while keeping court 
   const done=completeMatch(start,{scoreA:2,scoreB:1,resultType:'normal',skipRotation:true});
   assert.deepEqual(done.lineup,{A:['a','b'],B:['c','d'],bench:['f','g','e']});
 });
+
+
+test('QA: five-player night tracks uninterrupted tenure and re-entry reset',()=>{
+  let s=session();
+  let decision=getRotationDecision(s.matches,s.lineup,'A');
+  assert.equal(decision.requiresShuffle,true);
+  s=completeMatch(s,{scoreA:2,scoreB:1,resultType:'normal',leavingPlayerId:'c'});
+  assert.deepEqual(s.lineup,{A:['a','b'],B:['e','d'],bench:['c']});
+  s=completeMatch(s,{scoreA:2,scoreB:1,resultType:'normal',leavingPlayerId:'d'});
+  assert.deepEqual(s.lineup,{A:['a','b'],B:['e','c'],bench:['d']});
+  decision=getRotationDecision(s.matches,s.lineup,'B');
+  assert.deepEqual(decision.tenures,{a:3,b:3});
+  assert.equal(decision.requiresShuffle,true);
+  s=completeMatch(s,{scoreA:1,scoreB:2,resultType:'normal',leavingPlayerId:'a'});
+  assert.deepEqual(s.lineup,{A:['d','b'],B:['e','c'],bench:['a']});
+  assert.equal(getCurrentCourtTenure(s.matches,s.lineup,'d'),1);
+  assert.equal(getCurrentCourtTenure(s.matches,s.lineup,'b'),4);
+  decision=getRotationDecision(s.matches,s.lineup,'B');
+  assert.equal(decision.leavingPlayerId,'b');
+});
+
+test('QA: seven-player queue preserves order across rotation and skip',()=>{
+  let s={...session(),playerIds:['a','b','c','d','e','f','g'],lineup:{A:['a','b'],B:['c','d'],bench:['e','f','g']}};
+  s=completeMatch(s,{scoreA:2,scoreB:1,resultType:'normal',leavingPlayerId:'c'});
+  assert.deepEqual(s.lineup,{A:['a','b'],B:['e','d'],bench:['f','g','c']});
+  s=completeMatch(s,{scoreA:1,scoreB:0,resultType:'normal',skipRotation:true});
+  assert.deepEqual(s.lineup,{A:['a','b'],B:['e','d'],bench:['g','c','f']});
+  s=completeMatch(s,{scoreA:0,scoreB:2,resultType:'normal',leavingPlayerId:'a'});
+  assert.deepEqual(s.lineup,{A:['g','b'],B:['e','d'],bench:['c','f','a']});
+});
+
+test('QA: draw, penalties, golden goal and technical each record exactly one match',()=>{
+  let s=session();
+  s=completeMatch(s,{scoreA:1,scoreB:1,resultType:'normal'});
+  assert.equal(s.matches.length,1); assert.equal(s.matches[0].winner,null); assert.deepEqual(s.lineup,lineup);
+  s=completeMatch(s,{scoreA:2,scoreB:2,resultType:'penalties',selectedWinner:'A',leavingPlayerId:'c'});
+  assert.equal(s.matches.length,2); assert.equal(s.matches[1].winner,'A');
+  s=completeMatch(s,{scoreA:3,scoreB:3,resultType:'golden_goal',selectedWinner:'B',leavingPlayerId:'a'});
+  assert.equal(s.matches.length,3); assert.equal(s.matches[2].resultType,'golden_goal'); assert.equal(s.matches[2].winner,'B');
+  const loser=s.lineup.A[0];
+  s=completeMatch(s,{scoreA:0,scoreB:3,resultType:'technical',technicalMinute:12,leavingPlayerId:loser});
+  assert.equal(s.matches.length,4); assert.equal(s.matches[3].resultType,'technical'); assert.equal(s.matches[3].technicalMinute,12);
+});
+
+test('QA: undo after a rotated match restores the exact pre-match queue and score',()=>{
+  const start={...session(),playerIds:['a','b','c','d','e','f'],lineup:{A:['a','b'],B:['c','d'],bench:['e','f']},scoreA:4,scoreB:2};
+  const done=completeMatch(start,{scoreA:4,scoreB:2,resultType:'normal',leavingPlayerId:'c'},'2026-10-01T18:20:00.000Z');
+  assert.deepEqual(done.lineup,{A:['a','b'],B:['e','d'],bench:['f','c']});
+  const restored=undoLastMatch(done,'2026-10-01T18:21:00.000Z');
+  assert.deepEqual(restored.lineup,start.lineup);
+  assert.equal(restored.scoreA,4); assert.equal(restored.scoreB,2); assert.equal(restored.matches.length,0);
+});
+
+test('QA: a player appended to a six-player night waits at the end of the bench queue',()=>{
+  const s={...session(),playerIds:['a','b','c','d','e','f'],lineup:{A:['a','b'],B:['c','d'],bench:['e','f']}};
+  validateLineup(s.playerIds,s.lineup);
+  const joined={...s,playerIds:[...s.playerIds,'g'],lineup:{...s.lineup,bench:[...s.lineup.bench,'g']}};
+  validateLineup(joined.playerIds,joined.lineup);
+  assert.deepEqual(joined.lineup.bench,['e','f','g']);
+});
