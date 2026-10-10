@@ -10,6 +10,13 @@ const pairName = (players: Player[], ids: string[]) => ids.map(id => playerName(
 
 export function liveLine(session: Session, players: Player[]): string {
   const { scoreA, scoreB, matches } = session;
+  if (session.crew === 'other') {
+    const recentQuote = [...(session.quotes ?? [])].reverse().find(quote => quote.matchNumber === matches.length + 1);
+    if (recentQuote) return `״${recentQuote.text}״ — ${playerName(players,recentQuote.playerId)}. עכשיו נראה מה יקרה במשחק.`;
+    if (scoreA !== scoreB) return `${pairName(players, scoreA > scoreB ? session.lineup.A : session.lineup.B)} מובילים ${Math.max(scoreA,scoreB)}:${Math.min(scoreA,scoreB)}.`;
+    const latest = matches.at(-1);
+    return latest ? `המשחק האחרון נגמר ${latest.scoreA}:${latest.scoreB}. המשחק הבא כבר בדרך.` : 'הערב התחיל. נראה מי יפתח עם ניצחון.';
+  }
   if (scoreA === 3 && scoreB === 0 || scoreA === 0 && scoreB === 3) {
     return `3:0 ל${pairName(players, scoreA === 3 ? session.lineup.A : session.lineup.B)}. הוועדה מבקשת את דקת הטכני.`;
   }
@@ -31,7 +38,7 @@ export function CommentaryStrip({ session, players, onOpen }: { session: Session
   const archive = suggestBanterMemories(session)[0]?.memory;
   return <button className="commentary-strip" onClick={onOpen}>
     <span className="commentary-icon"><Mic2 size={19}/></span>
-    <span className="commentary-copy"><small>מהספסל · הפרנג׳ס מדבר</small><strong>{liveLine(session, players)}</strong>{archive && <em>מהארכיון: ״{archive.text}״ · {archive.speaker}</em>}</span>
+    <span className="commentary-copy"><small>{session.crew === 'other' ? 'מהצד · עדכון המשחק' : 'מהספסל · הפרנג׳ס מדבר'}</small><strong>{liveLine(session, players)}</strong>{archive && <em>מהארכיון: ״{archive.text}״ · {archive.speaker}</em>}</span>
     <ArrowLeft size={19} className="commentary-arrow"/>
   </button>;
 }
@@ -39,17 +46,18 @@ export function CommentaryStrip({ session, players, onOpen }: { session: Session
 function ArchiveLibrary({session,sessions,players}:{session:Session|null;sessions:Session[];players:Player[]}) {
   const [search,setSearch] = useState('');
   const suggested = session ? suggestBanterMemories(session) : [];
-  const savedQuotes = sessions.flatMap(night => (night.quotes ?? []).map(quote => ({
+  const visibleSessions = session?.crew === 'other' ? [session] : sessions.filter(night => night.crew !== 'other');
+  const savedQuotes = visibleSessions.flatMap(night => (night.quotes ?? []).map(quote => ({
     id: `night-${night.id}-${quote.id}`,
     text: quote.text,
     speaker: playerName(players, quote.playerId),
     date: night.date,
     context: `${night.title} · לפני משחק ${quote.matchNumber}`
   })));
-  const archive = [...savedQuotes, ...banterMemories];
+  const archive = session?.crew === 'other' ? savedQuotes : [...savedQuotes, ...banterMemories];
   const matching = archive.filter(memory => `${memory.text} ${memory.speaker} ${memory.context}`.includes(search.trim()));
-  return <section className="section"><div className="section-head"><h2>מהארכיון של החבורה</h2><span className="badge">{archive.length} משפטים</span></div>
-    <p className="small muted">משפטים שנשמרו בערבי FIFA יחד עם המשפטים הנבחרים מהצ׳אט, עם מקור ותאריך.</p>
+  return <section className="section"><div className="section-head"><h2>{session?.crew === 'other' ? 'משפטים מהערב הזה' : 'מהארכיון של החבורה'}</h2><span className="badge">{archive.length} משפטים</span></div>
+    <p className="small muted">{session?.crew === 'other' ? 'כאן יופיעו רק משפטים שנשמרו בערב הנוכחי.' : 'משפטים שנשמרו בערבי FIFA יחד עם המשפטים הנבחרים מהצ׳אט, עם מקור ותאריך.'}</p>
     {suggested.length > 0 && <div className="archive-suggestions">{suggested.map(({memory,reason}) => <article className="archive-memory" key={memory.id}><span className="archive-reason">{reason}</span><blockquote>״{memory.text}״</blockquote><small>{memory.speaker} · {memory.date}</small></article>)}</div>}
     <details className="archive-all"><summary>כל {archive.length} המשפטים בארכיון</summary><div className="archive-all-content"><label htmlFor="archive-search">חיפוש לפי משפט, שם או נושא</label><input id="archive-search" className="input" value={search} onChange={event => setSearch(event.target.value)} placeholder="למשל: סבב, טכני, גלעד"/><div className="archive-all-list">{matching.length ? matching.map(memory => <div key={memory.id}><strong>״{memory.text}״</strong><small>{memory.speaker} · {memory.date} · {memory.context}</small></div>) : <div className="empty">לא נמצא משפט מתאים. נסו מילה אחרת.</div>}</div></div></details>
   </section>;

@@ -1,6 +1,7 @@
 export class DomainError extends Error {}
 export type Team = 'A' | 'B';
 export type RulePreset = 'house' | 'free';
+export type CrewPreset = 'home' | 'other';
 export type GameMode = 'singles' | 'pairs';
 export type ResultType = 'normal' | 'penalties' | 'golden_goal' | 'technical';
 export type MatchEventType = 'goal' | 'own_goal' | 'penalty' | 'technical' | 'funny';
@@ -23,7 +24,7 @@ export interface Session {
   id: string; title: string; date: string; startedAt: string; endedAt?: string; status: 'active' | 'ended';
   notes?: string; quotes?: NightQuote[]; playerIds: string[]; lineup: Lineup; scoreA: number; scoreB: number;
   matchStartedAt: string; matches: Match[]; version: number; updatedAt: string;
-  rules?: { preset: RulePreset; version: number }; gameMode?: GameMode;
+  rules?: { preset: RulePreset; version: number }; gameMode?: GameMode; crew?: CrewPreset;
 }
 export const cloneLineup = (lineup: Lineup): Lineup => ({ A: [...lineup.A], B: [...lineup.B], bench: [...lineup.bench] });
 export function shuffleLineup(playerIds: string[], previous?: Lineup, random = Math.random, teamSize: 1 | 2 = 2): Lineup {

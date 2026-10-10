@@ -17,6 +17,14 @@ test('curated archive contains sources and selects a neutral opening before resu
   assert.ok(selected.every(item => item.memory.trigger !== 'technical' && item.memory.trigger !== 'noRound'));
 });
 
+test('another crew never receives the home chat archive, even with the same players', () => {
+  const other: Session = {...session(),crew:'other'};
+  assert.deepEqual(suggestBanterMemories(other),[]);
+  const played = completeMatch({...other,rules:{preset:'free',version:1}},{scoreA:1,scoreB:0,resultType:'normal'});
+  assert.deepEqual(suggestBanterMemories(played,played.matches[0]),[]);
+  assert.ok(suggestBanterMemories({...session(),crew:'home'}).length > 0);
+});
+
 test('technical and its recorded minute select relevant memories', () => {
   const completed = completeMatch(session(),{scoreA:3,scoreB:0,resultType:'technical',technicalMinute:19,leavingPlayerId:'c'});
   const selected = suggestBanterMemories(completed,completed.matches[0]);

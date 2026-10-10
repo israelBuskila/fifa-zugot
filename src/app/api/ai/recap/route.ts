@@ -56,12 +56,12 @@ export async function POST(request: Request) {
         ...suggestBanterMemories(session).slice(0,3).map(({memory,reason}) => ({text:memory.text,speaker:memory.speaker,date:memory.date,whyRelevant:reason})),
         ...(session.quotes ?? []).slice(-6).map(quote => ({text:quote.text,speaker:name(quote.playerId),date:quote.createdAt,whyRelevant:`נשמר באפליקציה לפני משחק ${quote.matchNumber}`})),
       ],
-      writingVoices: groupVoiceNotes(roster),
+      writingVoices: session.crew === 'other' ? [] : groupVoiceNotes(roster),
     };
     const quoteOnly=mode==='quote';
     const { text } = await generateText({
       model: createGoogle({ apiKey: process.env.GEMINI_API_KEY })('gemini-3.5-flash-lite'),
-      instructions: quoteOnly ? 'צור משפט ערב אחד בלבד בעברית, קצר, חד ומצחיק, בסגנון משפטי המתח והטראש-טוק של archive ו-writingVoices. המשפט צריך להישען על עובדה אמיתית מהערב אבל להיות ניסוח חדש, כמו טיזר לקראת הערב הבא. אל תמציא תוצאה, אירוע או ציטוט כאילו באמת נאמר. החזר רק את המשפט בלי מרכאות ובלי Markdown.' : 'כתוב סיכום ערב FIFA זוגות בעברית של החבורה, 3 עד 5 משפטים קצרים: מה קרה, מי בלט, ולבסוף עקיצה אחת שמגובה בעובדה. אחריו, בשורה חדשה שמתחילה בדיוק NIGHT_QUOTE: כתוב משפט ערב אחד קצר, חד ומצחיק בסגנון משפטי המתח והטראש-טוק שב-archive. זה ניסוח AI חדש שמבוסס על עובדות הערב, לא ציטוט אמיתי. השתמש רק בעובדות המשחק שב-JSON. ציטוטים שמורים הם דברים ששחקנים אמרו במשחק הנקוב; קטעי archive נאמרו בעבר עם מקור ותאריך, ואסור להציג אותם כאילו נאמרו הערב. אל תמציא משחקים, שערים, שמות או אירועים. בלי JSON או Markdown.',
+      instructions: session.crew === 'other' ? (quoteOnly ? "כתוב משפט ערב חדש, קצר ומצחיק בעברית, המבוסס על עובדה אמיתית מהמשחקים של הערב. אל תשתמש בבדיחות או בדמויות של חבורה אחרת, ואל תמציא ציטוט אמיתי. בלי Markdown." : "כתוב סיכום של ערב FIFA בין חברים בעברית, 3 עד 5 משפטים קצרים המבוססים רק על הנתונים שסופקו. סיים בעקיצה קלילה על אירוע אמיתי מהערב. בשורה נפרדת שמתחילה בדיוק NIGHT_QUOTE: כתוב משפט ערב חדש, לא ציטוט אמיתי. אל תשתמש בבדיחות פנימיות או בזיכרונות של חבורה אחרת. בלי Markdown.") : quoteOnly ? 'צור משפט ערב אחד בלבד בעברית, קצר, חד ומצחיק, בסגנון משפטי המתח והטראש-טוק של archive ו-writingVoices. המשפט צריך להישען על עובדה אמיתית מהערב אבל להיות ניסוח חדש, כמו טיזר לקראת הערב הבא. אל תמציא תוצאה, אירוע או ציטוט כאילו באמת נאמר. החזר רק את המשפט בלי מרכאות ובלי Markdown.' : 'כתוב סיכום ערב FIFA זוגות בעברית של החבורה, 3 עד 5 משפטים קצרים: מה קרה, מי בלט, ולבסוף עקיצה אחת שמגובה בעובדה. אחריו, בשורה חדשה שמתחילה בדיוק NIGHT_QUOTE: כתוב משפט ערב אחד קצר, חד ומצחיק בסגנון משפטי המתח והטראש-טוק שב-archive. זה ניסוח AI חדש שמבוסס על עובדות הערב, לא ציטוט אמיתי. השתמש רק בעובדות המשחק שב-JSON. ציטוטים שמורים הם דברים ששחקנים אמרו במשחק הנקוב; קטעי archive נאמרו בעבר עם מקור ותאריך, ואסור להציג אותם כאילו נאמרו הערב. אל תמציא משחקים, שערים, שמות או אירועים. בלי JSON או Markdown.',
       prompt: JSON.stringify(facts),
       maxOutputTokens: 260,
       abortSignal: AbortSignal.timeout(15000),

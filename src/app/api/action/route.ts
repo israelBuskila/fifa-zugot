@@ -7,6 +7,7 @@ export const dynamic='force-dynamic';
 const id=z.string().uuid();
 const lineup=z.object({A:z.array(id).min(1).max(2),B:z.array(id).min(1).max(2),bench:z.array(id)});
 const gameMode=z.enum(['singles','pairs']);
+const crew=z.enum(['home','other']);
 const rules=z.object({preset:z.enum(['house','free']),version:z.literal(1)});
 const events=z.array(z.object({id, type:z.enum(['goal','own_goal','penalty','technical','funny']),playerId:id.optional(),team:z.enum(['A','B']).optional(),minute:z.number().int().min(0).max(130).optional(),text:z.string().max(200).optional()})).max(100);
 const technicalMinute=z.number().int().min(0).max(130).optional();
@@ -14,7 +15,7 @@ const action=z.discriminatedUnion('type',[
   z.object({type:z.literal('player.add'),name:z.string().trim().min(1).max(40),nickname:z.string().trim().max(40).optional()}),
   z.object({type:z.literal('player.update'),id,name:z.string().trim().min(1).max(40),nickname:z.string().trim().max(40).optional(),active:z.boolean()}),
   z.object({type:z.literal('group.save'),name:z.string().trim().min(1).max(50),playerIds:z.array(id).min(2)}),
-  z.object({type:z.literal('session.start'),title:z.string().trim().min(1).max(80),playerIds:z.array(id).min(2),lineup,gameMode,rules}),
+  z.object({type:z.literal('session.start'),title:z.string().trim().min(1).max(80),playerIds:z.array(id).min(2),lineup,gameMode,rules,crew}),
   z.object({type:z.literal('session.score'),sessionId:id,version:z.number().int(),scoreA:z.number().int().min(0).max(99),scoreB:z.number().int().min(0).max(99)}),
   z.object({type:z.literal('session.complete'),sessionId:id,version:z.number().int(),scoreA:z.number().int().min(0).max(99),scoreB:z.number().int().min(0).max(99),resultType:z.enum(['normal','penalties','golden_goal','technical']),selectedWinner:z.enum(['A','B']).optional(),technicalMinute,leavingPlayerId:id.optional(),enteringPlayerId:id.optional(),rotationTeam:z.enum(['A','B']).optional(),skipRotation:z.boolean().optional(),events:events.optional()}),
   z.object({type:z.literal('session.undo'),sessionId:id,version:z.number().int()}),
@@ -22,7 +23,7 @@ const action=z.discriminatedUnion('type',[
   z.object({type:z.literal('session.player.add'),sessionId:id,version:z.number().int(),playerId:id}),
   z.object({type:z.literal('session.player.remove'),sessionId:id,version:z.number().int(),playerId:id}),
   z.object({type:z.literal('session.end'),sessionId:id,version:z.number().int()}),
-  z.object({type:z.literal('session.lineup'),sessionId:id,version:z.number().int(),playerIds:z.array(id).min(2),lineup,rules:rules.optional()}),
+  z.object({type:z.literal('session.lineup'),sessionId:id,version:z.number().int(),playerIds:z.array(id).min(2),lineup,rules:rules.optional(),crew:crew.optional()}),
   z.object({type:z.literal('quote.add'),sessionId:id,version:z.number().int(),playerId:id,text:z.string().trim().min(2).max(180)}),
   z.object({type:z.literal('quote.remove'),sessionId:id,version:z.number().int(),quoteId:id}),
   z.object({type:z.literal('match.edit'),sessionId:id,version:z.number().int(),matchId:id,scoreA:z.number().int().min(0).max(99),scoreB:z.number().int().min(0).max(99),resultType:z.enum(['normal','penalties','golden_goal','technical']),selectedWinner:z.enum(['A','B']).optional(),technicalMinute}),
@@ -67,7 +68,7 @@ export async function POST(request:Request) {
       if(await db.sessions.findOne({status:'active'}))return jsonError('כבר יש ערב פעיל. סיימו אותו או המשיכו בו.',409);
       const existing=await db.players.countDocuments({id:{$in:data.playerIds}});
       if(existing!==data.playerIds.length)return jsonError('אחד השחקנים לא נמצא.');
-      const session:Session={id:crypto.randomUUID(),title:data.title,date:now.slice(0,10),startedAt:now,status:'active',playerIds:data.playerIds,lineup:data.lineup,gameMode:data.gameMode,rules:data.rules,scoreA:0,scoreB:0,matchStartedAt:now,matches:[],version:1,updatedAt:now};
+      const session:Session={id:crypto.randomUUID(),title:data.title,date:now.slice(0,10),startedAt:now,status:'active',playerIds:data.playerIds,lineup:data.lineup,gameMode:data.gameMode,rules:data.rules,crew:data.crew,scoreA:0,scoreB:0,matchStartedAt:now,matches:[],version:1,updatedAt:now};
       await db.sessions.insertOne(session);return NextResponse.json({session});
     }
     if(data.type==='session.score')return updateSession(data.sessionId,data.version,s=>{if(s.status!=='active')throw new DomainError('הערב הסתיים.');return {...s,scoreA:data.scoreA,scoreB:data.scoreB,version:s.version+1,updatedAt:now};});
@@ -77,7 +78,7 @@ export async function POST(request:Request) {
     if(data.type==='session.player.add')return updateSession(data.sessionId,data.version,s=>{if(s.status!=='active')throw new DomainError('הערב הסתיים.');if(s.playerIds.includes(data.playerId))throw new DomainError('השחקן כבר משתתף בערב.');return {...s,playerIds:[...s.playerIds,data.playerId],lineup:{...s.lineup,bench:[...s.lineup.bench,data.playerId]},version:s.version+1,updatedAt:now};});
     if(data.type==='session.player.remove')return updateSession(data.sessionId,data.version,s=>{if(s.status!=='active')throw new DomainError('הערב הסתיים.');if(!s.lineup.bench.includes(data.playerId))throw new DomainError('אפשר להוציא מהערב רק שחקן שנמצא כרגע בפרנג׳ס.');if(s.playerIds.length<=(s.gameMode==='singles'?2:4))throw new DomainError('חייבים להישאר מספיק שחקנים למשחק.');return {...s,playerIds:s.playerIds.filter(id=>id!==data.playerId),lineup:{...s.lineup,bench:s.lineup.bench.filter(id=>id!==data.playerId)},version:s.version+1,updatedAt:now};});
     if(data.type==='session.end')return updateSession(data.sessionId,data.version,s=>({...s,status:'ended',endedAt:now,version:s.version+1,updatedAt:now}));
-    if(data.type==='session.lineup')return updateSession(data.sessionId,data.version,s=>{if(s.status!=='active')throw new DomainError('הערב הסתיים.');if(data.rules&&s.matches.length)throw new DomainError('אפשר לשנות חוקים רק לפני המשחק הראשון.');validateLineup(data.playerIds,data.lineup,s.gameMode??'pairs');return {...s,playerIds:data.playerIds,lineup:data.lineup,rules:data.rules??s.rules,version:s.version+1,updatedAt:now};});
+    if(data.type==='session.lineup')return updateSession(data.sessionId,data.version,s=>{if(s.status!=='active')throw new DomainError('הערב הסתיים.');if((data.rules||data.crew)&&s.matches.length)throw new DomainError('אפשר לשנות חבורה וחוקים רק לפני המשחק הראשון.');validateLineup(data.playerIds,data.lineup,s.gameMode??'pairs');return {...s,playerIds:data.playerIds,lineup:data.lineup,rules:data.rules??s.rules,crew:data.crew??s.crew,version:s.version+1,updatedAt:now};});
     if(data.type==='quote.add')return updateSession(data.sessionId,data.version,s=>{
       if(s.status!=='active')throw new DomainError('הערב הסתיים.');
       if(!s.playerIds.includes(data.playerId))throw new DomainError('השחקן אינו משתתף בערב.');

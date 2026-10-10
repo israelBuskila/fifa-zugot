@@ -182,7 +182,7 @@ test('QA: draw, penalties, golden goal and technical each record exactly one mat
   s=completeMatch(s,{scoreA:3,scoreB:3,resultType:'normal',rotationTeam:'A',leavingPlayerId:'a'});
   assert.equal(s.matches.length,3); assert.equal(s.matches[2].resultType,'normal'); assert.equal(s.matches[2].winner,null);
   const loser=s.lineup.A[0];
-  s=completeMatch(s,{scoreA:0,scoreB:3,resultType:'technical',technicalMinute:12,leavingPlayerId:loser});
+  s=completeMatch(s,{scoreA:0,scoreB:3,resultType:'technical',technicalMinute:12,rotationTeam:'A',leavingPlayerId:loser});
   assert.equal(s.matches.length,4); assert.equal(s.matches[3].resultType,'technical'); assert.equal(s.matches[3].technicalMinute,12);
 });
 
