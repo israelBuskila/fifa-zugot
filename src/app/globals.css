@@ -176,3 +176,15 @@
 .career-grid small{font-size:9px;font-weight:900;color:var(--muted)}
 .career-grid strong{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:680px){.career-grid{grid-template-columns:repeat(2,1fr)}}
+
+/* Crew identity and scoped history */
+.crew-defaults{display:flex!important;flex-wrap:wrap;gap:6px;margin-top:8px}
+.crew-defaults em{font-style:normal;font-size:10px;font-weight:850;color:#c5d7e5;border:1px solid #ffffff16;background:#ffffff08;border-radius:999px;padding:4px 8px}
+.crew-filter{margin-top:20px;padding:14px;border:1px solid #ffffff12;border-radius:19px;background:linear-gradient(145deg,#ffffff09,#ffffff03)}
+.crew-filter-label{display:block;margin-bottom:10px;color:var(--muted);font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+.crew-filter-options{display:flex;gap:8px;overflow-x:auto;padding:2px 1px 5px;scrollbar-width:none}
+.crew-filter-options::-webkit-scrollbar{display:none}
+.crew-filter-option{display:flex;align-items:center;gap:8px;min-height:43px;padding:5px 11px 5px 13px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--muted);font-size:12px;font-weight:850;white-space:nowrap}
+.crew-filter-option b{width:29px;height:29px;display:grid;place-items:center;border-radius:10px;background:#ffffff0b;color:var(--text);font-size:12px}
+.crew-filter-option.selected{border-color:var(--gold);background:linear-gradient(145deg,#403a2e,#29303a);color:var(--text)}
+.crew-filter-option.selected b{background:var(--gold);color:#172238}

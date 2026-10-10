@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ArrowLeft, Clipboard, MessageSquareText, Mic2, Trophy, X } from 'lucide-react';
-import { getRoundProgress, getTechnicalStats, type Player, type Session } from '@/lib/domain';
+import { getRoundProgress, getTechnicalStats, resolveSessionGroupId, type Group, type Player, type Session } from '@/lib/domain';
 import { banterMemories, suggestBanterMemories } from '@/lib/banter-memory';
 
 const playerName = (players: Player[], id: string) => players.find(player => player.id === id)?.nickname || players.find(player => player.id === id)?.name || 'שחקן';
@@ -36,7 +36,7 @@ export function liveLine(session: Session, players: Player[]): string {
 }
 
 export function CommentaryStrip({ session, players, onOpen }: { session: Session; players: Player[]; onOpen: () => void }) {
-  const archive = suggestBanterMemories(session)[0]?.memory;
+  const archive = (session.crew ?? 'home') === 'home' ? suggestBanterMemories(session)[0]?.memory : undefined;
   const neutralHumor = (session.humor ?? (session.crew === 'other' ? 'neutral' : 'house')) === 'neutral';
   return <button className="commentary-strip" onClick={onOpen}>
     <span className="commentary-icon"><Mic2 size={19}/></span>
@@ -45,10 +45,13 @@ export function CommentaryStrip({ session, players, onOpen }: { session: Session
   </button>;
 }
 
-function ArchiveLibrary({session,sessions,players}:{session:Session|null;sessions:Session[];players:Player[]}) {
+function ArchiveLibrary({session,sessions,players,groups,groupScope}:{session:Session|null;sessions:Session[];players:Player[];groups:Group[];groupScope:string}) {
   const [search,setSearch] = useState('');
-  const suggested = session ? suggestBanterMemories(session) : [];
-  const visibleSessions = session?.crew === 'other' ? [session] : sessions.filter(night => night.crew !== 'other');
+  const sessionScope = session ? resolveSessionGroupId(session, groups) ?? 'ungrouped' : groupScope;
+  const scopeGroup = groups.find(group => group.id === sessionScope);
+  const usesHomeArchive = scopeGroup ? (scopeGroup.crew ?? 'home') === 'home' : session ? (session.crew ?? 'home') === 'home' : false;
+  const suggested = session && usesHomeArchive ? suggestBanterMemories(session) : [];
+  const visibleSessions = sessionScope === 'all' ? [] : sessions.filter(night => (resolveSessionGroupId(night, groups) ?? 'ungrouped') === sessionScope);
   const savedQuotes = visibleSessions.flatMap(night => (night.quotes ?? []).map(quote => ({
     id: `night-${night.id}-${quote.id}`,
     text: quote.text,
@@ -56,19 +59,21 @@ function ArchiveLibrary({session,sessions,players}:{session:Session|null;session
     date: night.date,
     context: `${night.title} · לפני משחק ${quote.matchNumber}`
   })));
-  const archive = session?.crew === 'other' ? savedQuotes : [...savedQuotes, ...banterMemories];
+  const archive = usesHomeArchive ? [...savedQuotes, ...banterMemories] : savedQuotes;
   const matching = archive.filter(memory => `${memory.text} ${memory.speaker} ${memory.context}`.includes(search.trim()));
-  return <section className="section"><div className="section-head"><h2>{session?.crew === 'other' ? 'משפטים מהערב הזה' : 'מהארכיון של החבורה'}</h2><span className="badge">{archive.length} משפטים</span></div>
-    <p className="small muted">{session?.crew === 'other' ? 'כאן יופיעו רק משפטים שנשמרו בערב הנוכחי.' : 'משפטים שנשמרו בערבי FIFA יחד עם המשפטים הנבחרים מהצ׳אט, עם מקור ותאריך.'}</p>
+  return <section className="section"><div className="section-head"><h2>{usesHomeArchive ? 'מהארכיון של החבורה' : 'הארכיון של החבורה'}</h2><span className="badge">{archive.length} משפטים</span></div>
+    <p className="small muted">{usesHomeArchive ? 'משפטים שנשמרו בערבי FIFA יחד עם המשפטים הנבחרים מהצ׳אט, עם מקור ותאריך.' : sessionScope === 'all' ? 'בחרו חבורה כדי לפתוח את הארכיון שלה.' : 'כאן יופיעו רק המשפטים שנשמרו בערבים של החבורה הזו.'}</p>
     {suggested.length > 0 && <div className="archive-suggestions">{suggested.map(({memory,reason}) => <article className="archive-memory" key={memory.id}><span className="archive-reason">{reason}</span><blockquote>״{memory.text}״</blockquote><small>{memory.speaker} · {memory.date}</small></article>)}</div>}
     <details className="archive-all"><summary>כל {archive.length} המשפטים בארכיון</summary><div className="archive-all-content"><label htmlFor="archive-search">חיפוש לפי משפט, שם או נושא</label><input id="archive-search" className="input" value={search} onChange={event => setSearch(event.target.value)} placeholder="למשל: סבב, טכני, גלעד"/><div className="archive-all-list">{matching.length ? matching.map(memory => <div key={memory.id}><strong>״{memory.text}״</strong><small>{memory.speaker} · {memory.date} · {memory.context}</small></div>) : <div className="empty">לא נמצא משפט מתאים. נסו מילה אחרת.</div>}</div></div></details>
   </section>;
 }
 
-export function BenchStudio({ session, sessions, players, onSaveQuote, onRemoveQuote, busy }: {
+export function BenchStudio({ session, sessions, players, groups, groupScope, onSaveQuote, onRemoveQuote, busy }: {
   session: Session | null;
   sessions: Session[];
   players: Player[];
+  groups: Group[];
+  groupScope: string;
   onSaveQuote: (playerId: string, text: string) => Promise<void>;
   onRemoveQuote: (quoteId: string) => Promise<void>;
   busy: boolean;
@@ -76,7 +81,7 @@ export function BenchStudio({ session, sessions, players, onSaveQuote, onRemoveQ
   const [speaker, setSpeaker] = useState('');
   const [quote, setQuote] = useState('');
   const [copied, setCopied] = useState(false);
-  if (!session) return <main className="bench-page"><div className="eyebrow"><MessageSquareText size={15}/> מהספסל</div><h1 className="page-title">הפרנג׳ס עוד לא התיישב.</h1><p className="page-sub">כשיתחיל ערב, כאן יהיו העובדות שאפשר להוציא באמצע המשחק.</p><ArchiveLibrary session={null} sessions={sessions} players={players}/></main>;
+  if (!session) return <main className="bench-page"><div className="eyebrow"><MessageSquareText size={15}/> מהספסל</div><h1 className="page-title">הפרנג׳ס עוד לא התיישב.</h1><p className="page-sub">כשיתחיל ערב, כאן יהיו העובדות שאפשר להוציא באמצע המשחק.</p><ArchiveLibrary session={null} sessions={sessions} players={players} groups={groups} groupScope={groupScope}/></main>;
 
   const bench = session.lineup.bench;
   const round = getRoundProgress(session.matches);
@@ -116,7 +121,7 @@ export function BenchStudio({ session, sessions, players, onSaveQuote, onRemoveQ
       </div>
     </section>
 
-    <ArchiveLibrary session={session} sessions={sessions} players={players}/>
+    <ArchiveLibrary session={session} sessions={sessions} players={players} groups={groups} groupScope={groupScope}/>
 
     {bench.length > 0 && <section className="section"><div className="section-head"><h2>התיק של הפרנג׳ס</h2></div><div className="bench-player-list">{bench.map(id => {
       const technicals = getTechnicalStats(session.matches, id);

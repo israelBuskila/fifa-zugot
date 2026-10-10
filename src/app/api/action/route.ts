@@ -15,8 +15,8 @@ const technicalMinute=z.number().int().min(0).max(130).optional();
 const action=z.discriminatedUnion('type',[
   z.object({type:z.literal('player.add'),name:z.string().trim().min(1).max(40),nickname:z.string().trim().max(40).optional()}),
   z.object({type:z.literal('player.update'),id,name:z.string().trim().min(1).max(40),nickname:z.string().trim().max(40).optional(),active:z.boolean()}),
-  z.object({type:z.literal('group.save'),name:z.string().trim().min(1).max(50),playerIds:z.array(id).min(2)}),
-  z.object({type:z.literal('session.start'),title:z.string().trim().min(1).max(80),playerIds:z.array(id).min(2),lineup,gameMode,rules,crew,humor}),
+  z.object({type:z.literal('group.save'),name:z.string().trim().min(1).max(50),playerIds:z.array(id).min(2),crew:crew.optional(),humor:humor.optional(),rules:rules.optional()}),
+  z.object({type:z.literal('session.start'),title:z.string().trim().min(1).max(80),playerIds:z.array(id).min(2),lineup,gameMode,rules,crew,humor,groupId:id.optional()}),
   z.object({type:z.literal('session.score'),sessionId:id,version:z.number().int(),scoreA:z.number().int().min(0).max(99),scoreB:z.number().int().min(0).max(99)}),
   z.object({type:z.literal('session.complete'),sessionId:id,version:z.number().int(),scoreA:z.number().int().min(0).max(99),scoreB:z.number().int().min(0).max(99),resultType:z.enum(['normal','penalties','golden_goal','technical']),selectedWinner:z.enum(['A','B']).optional(),technicalMinute,leavingPlayerId:id.optional(),enteringPlayerId:id.optional(),rotationTeam:z.enum(['A','B']).optional(),skipRotation:z.boolean().optional(),events:events.optional()}),
   z.object({type:z.literal('session.undo'),sessionId:id,version:z.number().int()}),
@@ -60,7 +60,8 @@ export async function POST(request:Request) {
     }
     if(data.type==='group.save') {
       if(new Set(data.playerIds).size!==data.playerIds.length)return jsonError('יש שחקן כפול בקבוצה.');
-      const group={id:crypto.randomUUID(),name:data.name,playerIds:data.playerIds,createdAt:now};
+      const groupCrew=data.crew??'home';
+      const group={id:crypto.randomUUID(),name:data.name,playerIds:data.playerIds,crew:groupCrew,humor:data.humor??(groupCrew==='home'?'house':'neutral'),rules:data.rules??{preset:groupCrew==='home'?'house' as const:'free' as const,version:1},createdAt:now};
       if(await db.players.countDocuments({id:{$in:data.playerIds}})!==data.playerIds.length)return jsonError('אחד השחקנים לא נמצא.');
       await db.groups.insertOne(group);return NextResponse.json({group});
     }
@@ -69,7 +70,8 @@ export async function POST(request:Request) {
       if(await db.sessions.findOne({status:'active'}))return jsonError('כבר יש ערב פעיל. סיימו אותו או המשיכו בו.',409);
       const existing=await db.players.countDocuments({id:{$in:data.playerIds}});
       if(existing!==data.playerIds.length)return jsonError('אחד השחקנים לא נמצא.');
-      const session:Session={id:crypto.randomUUID(),title:data.title,date:now.slice(0,10),startedAt:now,status:'active',playerIds:data.playerIds,lineup:data.lineup,gameMode:data.gameMode,rules:data.rules,crew:data.crew,humor:data.humor,scoreA:0,scoreB:0,matchStartedAt:now,matches:[],version:1,updatedAt:now};
+      if(data.groupId&&!await db.groups.findOne({id:data.groupId}))return jsonError('החבורה השמורה לא נמצאה.',404);
+      const session:Session={id:crypto.randomUUID(),title:data.title,date:now.slice(0,10),startedAt:now,status:'active',playerIds:data.playerIds,lineup:data.lineup,gameMode:data.gameMode,rules:data.rules,crew:data.crew,humor:data.humor,groupId:data.groupId,scoreA:0,scoreB:0,matchStartedAt:now,matches:[],version:1,updatedAt:now};
       await db.sessions.insertOne(session);return NextResponse.json({session});
     }
     if(data.type==='session.score')return updateSession(data.sessionId,data.version,s=>{if(s.status!=='active')throw new DomainError('הערב הסתיים.');return {...s,scoreA:data.scoreA,scoreB:data.scoreB,version:s.version+1,updatedAt:now};});

@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BarChart3, ChevronLeft, History, LogOut, MessageSquareText, RotateCcw, Shuffle, Swords, Users, WifiOff, X } from 'lucide-react';
-import { getRotationDecision, getTieRotationDecision, type CrewPreset, type GameMode, type Group, type HumorPreset, type Lineup, type Match, type MatchEvent, type Player, type ResultType, type RotationDecision, type RulePreset, type Session, type Team } from '@/lib/domain';
+import { getRotationDecision, getTieRotationDecision, resolveSessionGroupId, type CrewPreset, type GameMode, type Group, type HumorPreset, type Lineup, type Match, type MatchEvent, type Player, type ResultType, type RotationDecision, type RulePreset, type Session, type Team } from '@/lib/domain';
 import { MatchPunchline } from '@/components/match-punchline';
 import { InstallApp } from '@/components/install-app';
 import { BenchStudio } from '@/components/bench-studio';
@@ -23,18 +23,23 @@ function Avatar({name,tone='blue'}:{name:string;tone?:'blue'|'coral'|'gold'}){re
 function errorOf(err:unknown){return err instanceof Error?err.message:'הפעולה נכשלה. נסו שוב.'}
 export function App(){
   const [data,setData]=useState<Bootstrap>(initial);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [offline,setOffline]=useState(false);const [busy,setBusy]=useState(false);
-  const [tab,setTab]=useState<Tab>('live');const [setup,setSetup]=useState<'new'|'edit'|null>(null);const [setupStep,setSetupStep]=useState<1|2>(1);const [selectedIds,setSelectedIds]=useState<string[]>([]);const [lineup,setLineup]=useState<Lineup>({A:[],B:[],bench:[]});const [nightTitle,setNightTitle]=useState('ערב FIFA');const [presetName,setPresetName]=useState('');const [slot,setSlot]=useState<{team:'A'|'B'|'bench';index:number}|null>(null);
+  const [tab,setTab]=useState<Tab>('live');const [setup,setSetup]=useState<'new'|'edit'|null>(null);const [setupStep,setSetupStep]=useState<1|2>(1);const [selectedIds,setSelectedIds]=useState<string[]>([]);const [selectedGroupId,setSelectedGroupId]=useState<string|null>(null);const [lineup,setLineup]=useState<Lineup>({A:[],B:[],bench:[]});const [nightTitle,setNightTitle]=useState('ערב FIFA');const [presetName,setPresetName]=useState('');const [slot,setSlot]=useState<{team:'A'|'B'|'bench';index:number}|null>(null);
   const [leaving,setLeaving]=useState(false);const [shuffledLeavingId,setShuffledLeavingId]=useState<string|null>(null);const [resultType,setResultType]=useState<ResultType>('normal');const [selectedWinner,setSelectedWinner]=useState<Team|null>(null);const [detailMode,setDetailMode]=useState(false);const [events,setEvents]=useState<MatchEvent[]>([]);const [eventType,setEventType]=useState<MatchEvent['type']>('goal');const [eventPlayer,setEventPlayer]=useState('');const [eventText,setEventText]=useState('');const [eventMinute,setEventMinute]=useState('');const [ending,setEnding]=useState(false);const [showAllMatches,setShowAllMatches]=useState(false);
   const [crewPreset,setCrewPreset]=useState<CrewPreset>('other');const [humorPreset,setHumorPreset]=useState<HumorPreset>('neutral');const [rulesPreset,setRulesPreset]=useState<RulePreset>('free');const [freeFinish,setFreeFinish]=useState(false);const [freeRotationTeam,setFreeRotationTeam]=useState<Team|null>(null);const [freeLeaving,setFreeLeaving]=useState<string|null>(null);const [freeEntering,setFreeEntering]=useState<string|null>(null);
   const [punchlineMatchId,setPunchlineMatchId]=useState<string|null>(null);const [technicalMinute,setTechnicalMinute]=useState('');const [editTechnicalMinute,setEditTechnicalMinute]=useState('');
-  const [historyId,setHistoryId]=useState<string|null>(null);const [profileId,setProfileId]=useState<string|null>(null);const [editMatch,setEditMatch]=useState<{sessionId:string;match:Match}|null>(null);const [editScore,setEditScore]=useState({A:0,B:0});const [editResultType,setEditResultType]=useState<ResultType>('normal');const [editWinner,setEditWinner]=useState<Team>('A');const [newPlayer,setNewPlayer]=useState('');const [newNickname,setNewNickname]=useState('');const [profileEditing,setProfileEditing]=useState(false);const [profileName,setProfileName]=useState('');const [profileNickname,setProfileNickname]=useState('');const [profileActive,setProfileActive]=useState(true);const [h2h,setH2h]=useState<[string,string]|null>(null);const [statsView,setStatsView]=useState<'players'|'pairs'|'head'>('players');
+  const [historyId,setHistoryId]=useState<string|null>(null);const [groupScope,setGroupScope]=useState('');const [profileId,setProfileId]=useState<string|null>(null);const [editMatch,setEditMatch]=useState<{sessionId:string;match:Match}|null>(null);const [editScore,setEditScore]=useState({A:0,B:0});const [editResultType,setEditResultType]=useState<ResultType>('normal');const [editWinner,setEditWinner]=useState<Team>('A');const [newPlayer,setNewPlayer]=useState('');const [newNickname,setNewNickname]=useState('');const [profileEditing,setProfileEditing]=useState(false);const [profileName,setProfileName]=useState('');const [profileNickname,setProfileNickname]=useState('');const [profileActive,setProfileActive]=useState(true);const [h2h,setH2h]=useState<[string,string]|null>(null);const [statsView,setStatsView]=useState<'players'|'pairs'|'head'>('players');
   const serverRef=useRef<Session|null>(null);const draftRef=useRef<{scoreA:number;scoreB:number}|null>(null);const scoreTimer=useRef<ReturnType<typeof setTimeout>|null>(null);const queueRef=useRef<Promise<unknown>>(Promise.resolve());
   const active=data.sessions.find(s=>s.status==='active')||null;const selectedHistory=data.sessions.find(s=>s.id===historyId)||null;const profile=data.players.find(p=>p.id===profileId)||null;
   const punchlineMatch=punchlineMatchId?data.sessions.flatMap(s=>s.matches).find(m=>m.id===punchlineMatchId):null;
-  const allMatches=useMemo(()=>data.sessions.flatMap(s=>s.matches),[data.sessions]);
+  const scopedSessions=useMemo(()=>groupScope==='all'||!groupScope?data.sessions:data.sessions.filter(session=>(resolveSessionGroupId(session,data.groups)??'ungrouped')===groupScope),[data.sessions,data.groups,groupScope]);
+  const scopedMatches=useMemo(()=>scopedSessions.flatMap(s=>s.matches),[scopedSessions]);
+  const hasUngrouped=data.sessions.some(session=>!resolveSessionGroupId(session,data.groups));
+  const activeGroupScope=active?(resolveSessionGroupId(active,data.groups)??'ungrouped'):groupScope;
+  const currentCrewSessions=active?data.sessions.filter(session=>(resolveSessionGroupId(session,data.groups)??'ungrouped')===activeGroupScope):scopedSessions;
   const updateSession=useCallback((session:Session,keepDraft=false)=>{serverRef.current=session;setData(current=>({...current,sessions:[session,...current.sessions.filter(s=>s.id!==session.id)].sort((a,b)=>b.startedAt.localeCompare(a.startedAt))}));if(!keepDraft){draftRef.current=null;try{localStorage.removeItem(`fifa-score-${session.id}`)}catch{}}},[]);
   const load=useCallback(async()=>{setLoading(true);setError('');try{const response=await fetch('/api/bootstrap',{cache:'no-store'});const body=await response.json();if(!response.ok)throw new Error(body.error||'טעינת הנתונים נכשלה.');setData(body);try{localStorage.setItem('fifa-bootstrap',JSON.stringify(body))}catch{}const live=(body as Bootstrap).sessions.find(s=>s.status==='active');if(live){serverRef.current=live;try{const saved=localStorage.getItem(`fifa-score-${live.id}`);if(saved){const draft=JSON.parse(saved);if(draft.matchStartedAt===live.matchStartedAt&&Number.isInteger(draft.scoreA)&&Number.isInteger(draft.scoreB)){draftRef.current={scoreA:draft.scoreA,scoreB:draft.scoreB};setData((d:Bootstrap)=>({...d,sessions:d.sessions.map(s=>s.id===live.id?{...s,scoreA:draft.scoreA,scoreB:draft.scoreB}:s)}));}}}catch{}}setOffline(false);}catch(err){try{const cached=localStorage.getItem('fifa-bootstrap');if(cached){const snapshot=JSON.parse(cached) as Bootstrap;setData(snapshot);serverRef.current=snapshot.sessions.find(s=>s.status==='active')||null;if(serverRef.current){const saved=localStorage.getItem(`fifa-score-${serverRef.current.id}`);if(saved){const draft=JSON.parse(saved);if(draft.matchStartedAt===serverRef.current.matchStartedAt&&Number.isInteger(draft.scoreA)&&Number.isInteger(draft.scoreB)){draftRef.current={scoreA:draft.scoreA,scoreB:draft.scoreB};setData(old=>({...old,sessions:old.sessions.map(item=>item.id===serverRef.current?.id?{...item,scoreA:draft.scoreA,scoreB:draft.scoreB}:item)}));}}}}}catch{}setError(errorOf(err));setOffline(true);}finally{setLoading(false)}},[]);
   useEffect(()=>{if(!loading&&(data.players.length||data.sessions.length||data.groups.length)){try{localStorage.setItem('fifa-bootstrap',JSON.stringify(data))}catch{}}},[data,loading]);
+  useEffect(()=>{if(loading||groupScope)return;const activeGroup=active?(resolveSessionGroupId(active,data.groups)??'ungrouped'):undefined;const homeGroup=data.groups.find(group=>(group.crew??'home')==='home');setGroupScope(activeGroup??homeGroup?.id??data.groups[0]?.id??'all')},[loading,groupScope,active,data.groups]);
   useEffect(()=>{load()},[load]);
   const send=useCallback(async(payload:Action)=>{const response=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const body=await response.json();if(!response.ok)throw new Error(body.error||'השמירה נכשלה.');return body;},[]);
   const mutateSession=useCallback((build:(s:Session)=>Action,keepDraft=false)=>{
@@ -47,13 +52,13 @@ export function App(){
   function scoreChange(team:Team,delta:number){if(!active||busy)return;const currentA=draftRef.current?.scoreA??active.scoreA;const currentB=draftRef.current?.scoreB??active.scoreB;if(delta>0&&active.rules?.preset!=='free'&&((currentA===3&&currentB===0)||(currentA===0&&currentB===3)))return;const next={scoreA:Math.max(0,Math.min(99,(draftRef.current?.scoreA??active.scoreA)+(team==='A'?delta:0))),scoreB:Math.max(0,Math.min(99,(draftRef.current?.scoreB??active.scoreB)+(team==='B'?delta:0)))};draftRef.current=next;setData(old=>({...old,sessions:old.sessions.map(s=>s.id===active.id?{...s,...next}:s)}));try{localStorage.setItem(`fifa-score-${active.id}`,JSON.stringify({...next,matchStartedAt:active.matchStartedAt}))}catch{}
     if(scoreTimer.current)clearTimeout(scoreTimer.current);scoreTimer.current=setTimeout(()=>{const wanted=draftRef.current;if(!wanted)return;mutateSession(s=>({type:'session.score',sessionId:s.id,version:s.version,...wanted}),true).catch(err=>{setOffline(true);setError(`התוצאה נשמרה במכשיר. ${errorOf(err)}`)});},260);
   }
-  function beginSetup(mode:'new'|'edit'){setSetup(mode);setSetupStep(mode==='edit'?2:1);setError('');if(mode==='edit'&&active){const crew=active.crew??'home';setSelectedIds([...active.playerIds]);setLineup({A:[...active.lineup.A],B:[...active.lineup.B],bench:[...active.lineup.bench]});setCrewPreset(crew);setHumorPreset(active.humor??(crew==='home'?'house':'neutral'));setRulesPreset(active.rules?.preset??'house');}else{setSelectedIds([]);setLineup({A:[],B:[],bench:[]});setCrewPreset('other');setHumorPreset('neutral');setRulesPreset('free');setNightTitle(`ערב FIFA · ${new Date().toLocaleDateString('he-IL',{day:'numeric',month:'numeric'})}`);}}
+  function beginSetup(mode:'new'|'edit'){setSetup(mode);setSetupStep(mode==='edit'?2:1);setError('');if(mode==='edit'&&active){const crew=active.crew??'home';setSelectedIds([...active.playerIds]);setSelectedGroupId(resolveSessionGroupId(active,data.groups)??null);setLineup({A:[...active.lineup.A],B:[...active.lineup.B],bench:[...active.lineup.bench]});setCrewPreset(crew);setHumorPreset(active.humor??(crew==='home'?'house':'neutral'));setRulesPreset(active.rules?.preset??'house');}else{setSelectedIds([]);setSelectedGroupId(null);setLineup({A:[],B:[],bench:[]});setCrewPreset('other');setHumorPreset('neutral');setRulesPreset('free');setNightTitle(`ערב FIFA · ${new Date().toLocaleDateString('he-IL',{day:'numeric',month:'numeric'})}`);}}
   function chooseCrew(crew:CrewPreset){setCrewPreset(crew);setHumorPreset(crew==='home'?'house':'neutral');setRulesPreset(crew==='home'?'house':'free')}
-  function choosePreset(group:Group){setSelectedIds([...group.playerIds]);const last=data.sessions.find(s=>s.playerIds.length===group.playerIds.length&&s.playerIds.every(id=>group.playerIds.includes(id)));const candidate=last?.matches[0]?.lineupBefore||last?.lineup;const size=group.playerIds.length<4?1:2;setLineup(candidate&&candidate.A.length===size&&candidate.B.length===size&&[...candidate.A,...candidate.B,...candidate.bench].every(id=>group.playerIds.includes(id))?{A:[...candidate.A],B:[...candidate.B],bench:[...candidate.bench]}:defaultLineup(group.playerIds));setSetupStep(2)}
-  function togglePlayer(id:string){setSelectedIds(ids=>{const next=ids.includes(id)?ids.filter(x=>x!==id):[...ids,id];setLineup(defaultLineup(next,setup==='edit'?(active?.gameMode??'pairs'):undefined));return next})}
+  function choosePreset(group:Group){const crew=group.crew??'home';setSelectedGroupId(group.id);setSelectedIds([...group.playerIds]);setCrewPreset(crew);setHumorPreset(group.humor??(crew==='home'?'house':'neutral'));setRulesPreset(group.rules?.preset??(crew==='home'?'house':'free'));const last=data.sessions.find(s=>resolveSessionGroupId(s,data.groups)===group.id);const candidate=last?.matches[0]?.lineupBefore||last?.lineup;const size=group.playerIds.length<4?1:2;setLineup(candidate&&candidate.A.length===size&&candidate.B.length===size&&[...candidate.A,...candidate.B,...candidate.bench].every(id=>group.playerIds.includes(id))?{A:[...candidate.A],B:[...candidate.B],bench:[...candidate.bench]}:defaultLineup(group.playerIds))}
+  function togglePlayer(id:string){const next=selectedIds.includes(id)?selectedIds.filter(playerId=>playerId!==id):[...selectedIds,id];setSelectedIds(next);setLineup(defaultLineup(next,setup==='edit'?(active?.gameMode??'pairs'):undefined))}
   function assignPlayer(id:string){if(!slot)return;const next={A:[...lineup.A],B:[...lineup.B],bench:[...lineup.bench]};const source=(['A','B','bench'] as const).map(team=>({team,index:next[team].indexOf(id)})).find(x=>x.index>=0);const old=next[slot.team][slot.index];if(source){next[source.team][source.index]=old;next[slot.team][slot.index]=id;}setLineup(next);setSlot(null)}
-  async function saveSetup(){setBusy(true);setError('');try{if(setup==='new'){const gameMode:GameMode=selectedIds.length<4?'singles':'pairs';const body=await send({type:'session.start',title:nightTitle.trim()||'ערב FIFA',playerIds:selectedIds,lineup,gameMode,crew:crewPreset,humor:humorPreset,rules:{preset:rulesPreset,version:1}});updateSession(body.session);setData(old=>({...old,sessions:[body.session,...old.sessions.filter(s=>s.id!==body.session.id)]}));}else if(active){await mutateSession(s=>({type:'session.lineup',sessionId:s.id,version:s.version,playerIds:selectedIds,lineup,crew:s.matches.length?undefined:crewPreset,humor:s.matches.length?undefined:humorPreset,rules:s.matches.length?undefined:{preset:rulesPreset,version:1}}));}setSetup(null);setTab('live');}catch(err){setError(errorOf(err))}finally{setBusy(false)}}
-  async function saveGroup(){const name=presetName.trim();if(!name)return;setBusy(true);try{const body=await send({type:'group.save',name,playerIds:selectedIds});setData(old=>({...old,groups:[...old.groups,body.group]}));setPresetName('');}catch(err){setError(errorOf(err))}finally{setBusy(false)}}
+  async function saveSetup(){setBusy(true);setError('');try{if(setup==='new'){const gameMode:GameMode=selectedIds.length<4?'singles':'pairs';const body=await send({type:'session.start',title:nightTitle.trim()||'ערב FIFA',playerIds:selectedIds,lineup,gameMode,crew:crewPreset,humor:humorPreset,groupId:selectedGroupId??undefined,rules:{preset:rulesPreset,version:1}});updateSession(body.session);setGroupScope(selectedGroupId??'ungrouped');setData(old=>({...old,sessions:[body.session,...old.sessions.filter(s=>s.id!==body.session.id)]}));}else if(active){await mutateSession(s=>({type:'session.lineup',sessionId:s.id,version:s.version,playerIds:selectedIds,lineup,crew:s.matches.length?undefined:crewPreset,humor:s.matches.length?undefined:humorPreset,rules:s.matches.length?undefined:{preset:rulesPreset,version:1}}));}setSetup(null);setTab('live');}catch(err){setError(errorOf(err))}finally{setBusy(false)}}
+  async function saveGroup(){const name=presetName.trim();if(!name)return;setBusy(true);try{const body=await send({type:'group.save',name,playerIds:selectedIds,crew:crewPreset,humor:humorPreset,rules:{preset:rulesPreset,version:1}});setData(old=>({...old,groups:[...old.groups,body.group]}));setSelectedGroupId(body.group.id);setGroupScope(body.group.id);setPresetName('');}catch(err){setError(errorOf(err))}finally{setBusy(false)}}
   const isFree=active?.rules?.preset==='free';
   const isTechnical=Boolean(active&&((active.scoreA===3&&active.scoreB===0)||(active.scoreA===0&&active.scoreB===3)));
   const effectiveType:ResultType=isTechnical&&!isFree?'technical':resultType==='technical'&&!isTechnical||((resultType==='penalties'||resultType==='golden_goal')&&active?.scoreA!==active?.scoreB)?'normal':resultType;
@@ -86,31 +91,167 @@ export function App(){
   async function removePlayerFromNight(playerId:string){if(!active||busy)return;setBusy(true);setError('');try{await mutateSession(s=>({type:'session.player.remove',sessionId:s.id,version:s.version,playerId}))}catch(err){setError(errorOf(err))}finally{setBusy(false)}}
   async function saveQuote(playerId:string,quote:string){if(!active)return;setBusy(true);try{await mutateSession(s=>({type:'quote.add',sessionId:s.id,version:s.version,playerId,text:quote}))}catch(err){setError(errorOf(err));throw err}finally{setBusy(false)}}
   async function removeQuote(quoteId:string){if(!active)return;setBusy(true);try{await mutateSession(s=>({type:'quote.remove',sessionId:s.id,version:s.version,quoteId}))}catch(err){setError(errorOf(err))}finally{setBusy(false)}}
+  function changeGroupScope(value:string){setGroupScope(value);setHistoryId(null);setH2h(null)}
+  function openHistory(sessionId?:string){if(sessionId){const session=data.sessions.find(item=>item.id===sessionId);if(session)changeGroupScope(resolveSessionGroupId(session,data.groups)??'ungrouped');setHistoryId(sessionId)}setTab('history')}
   const nav=[{id:'live' as Tab,label:'הערב',icon:Swords},{id:'bench' as Tab,label:'פרנג׳ס',icon:MessageSquareText},{id:'stats' as Tab,label:'מספרים',icon:BarChart3},{id:'history' as Tab,label:'ארכיון',icon:History},{id:'players' as Tab,label:'החבר׳ה',icon:Users}];
-  return <div className="app"><header className="topbar"><div className="brand"><div className="brand-icon">F<span>2</span></div><span>FIFA זוגות</span></div><div className="header-actions"><InstallApp/><button className="header-action" onClick={async()=>{await fetch('/api/auth/logout',{method:'POST'});localStorage.removeItem('fifa-bootstrap');location.reload()}}><LogOut size={15}/><span>יציאה</span></button></div></header>
-    {error&&<div className="status-banner" role="alert">{offline&&<WifiOff size={14} style={{display:'inline',marginLeft:6}}/>}{error}<button style={{float:'left',border:0,background:'none',color:'inherit'}} onClick={()=>{setError('');if(offline)load()}} aria-label="סגירה"><X size={14}/></button></div>}
-    {loading?<div className="empty">טוענים את הערב…</div>:setup?<SetupView mode={setup} step={setupStep} players={data.players} groups={data.groups} selectedIds={selectedIds} lineup={lineup} nightTitle={nightTitle} presetName={presetName} busy={busy} crewPreset={crewPreset} onCrewPresetChange={chooseCrew} humorPreset={humorPreset} onHumorPresetChange={setHumorPreset} rulesPreset={rulesPreset} rulesEditable={setup==='new'||!active?.matches.length} gameMode={setup==='edit'?(active?.gameMode??'pairs'):selectedIds.length<4?'singles':'pairs'} onRulesPresetChange={setRulesPreset} onClose={()=>setSetup(null)} onStepChange={setSetupStep} onChoosePreset={choosePreset} onTogglePlayer={togglePlayer} onLineupChange={setLineup} onNightTitleChange={setNightTitle} onPresetNameChange={setPresetName} onSlotSelect={setSlot} onSaveGroup={saveGroup} onSaveSetup={saveSetup}/>:tab==='live'?<LiveView active={active} sessions={data.sessions} players={data.players} busy={busy} detailMode={detailMode} effectiveType={effectiveType} isTechnical={isTechnical} resultType={resultType} selectedWinner={selectedWinner} technicalMinute={technicalMinute} eventType={eventType} eventPlayer={eventPlayer} eventText={eventText} eventMinute={eventMinute} events={events} showAllMatches={showAllMatches} onNewNight={()=>beginSetup('new')} onHistory={id=>{if(id)setHistoryId(id);setTab('history')}} onBench={()=>setTab('bench')} onScore={scoreChange} onDetailToggle={()=>setDetailMode(v=>!v)} onResultTypeChange={setResultType} onWinnerChange={setSelectedWinner} onTechnicalMinuteChange={setTechnicalMinute} onEventTypeChange={setEventType} onEventPlayerChange={setEventPlayer} onEventTextChange={setEventText} onEventMinuteChange={setEventMinute} onAddEvent={addEvent} onRemoveEvent={index=>setEvents(events.filter((_,i)=>i!==index))} onComplete={requestComplete} onEditSetup={()=>beginSetup('edit')} onShowAllToggle={()=>setShowAllMatches(v=>!v)} onPunchline={setPunchlineMatchId} onUndo={undo} onEndNight={()=>setEnding(true)} onAddNightPlayer={addPlayerToNight} onRemoveNightPlayer={removePlayerFromNight}/>:tab==='bench'?<BenchStudio session={active} sessions={data.sessions} players={data.players} onSaveQuote={saveQuote} onRemoveQuote={removeQuote} busy={busy}/>:tab==='history'?<HistoryView sessions={data.sessions} players={data.players} selected={selectedHistory} onSelect={setHistoryId} onPunchline={setPunchlineMatchId} onEdit={(sessionId,m)=>{setEditMatch({sessionId,match:m});setEditScore({A:m.scoreA,B:m.scoreB});setEditResultType(m.resultType);setEditWinner(m.winner||'A');setEditTechnicalMinute(m.technicalMinute===undefined?'':String(m.technicalMinute))}}/>:tab==='stats'?<StatsView players={data.players} matches={allMatches} view={statsView} h2h={h2h} onViewChange={setStatsView} onH2hChange={setH2h} onPlayerClick={id=>{setProfileId(id);setTab('players')}}/>:<PlayersView players={data.players} sessions={data.sessions} matches={allMatches} profile={profile} editing={profileEditing} profileName={profileName} profileNickname={profileNickname} profileActive={profileActive} newPlayer={newPlayer} newNickname={newNickname} busy={busy} onProfileSelect={id=>{setProfileId(id);setProfileEditing(false)}} onBack={()=>setProfileId(null)} onEditToggle={()=>{setProfileEditing(v=>!v);if(profile){setProfileName(profile.name);setProfileNickname(profile.nickname||'');setProfileActive(profile.active)}}} onProfileNameChange={setProfileName} onProfileNicknameChange={setProfileNickname} onProfileActiveChange={setProfileActive} onSaveProfile={saveProfile} onNewPlayerChange={setNewPlayer} onNewNicknameChange={setNewNickname} onAddPlayer={addPlayer} onOpenHistory={id=>{setHistoryId(id);setProfileId(null);setTab('history')}}/>}
-    {!setup&&<nav className="nav" aria-label="ניווט ראשי"><div className="nav-inner">{nav.map(item=><button key={item.id} className={`nav-btn ${tab===item.id?'active':''}`} onClick={()=>{setTab(item.id);setHistoryId(null);setProfileId(null);setError('')}}><item.icon size={21} strokeWidth={tab===item.id?2.5:1.8}/>{item.label}</button>)}</div></nav>}
-    {slot&&<div className="sheet-backdrop" onClick={()=>setSlot(null)}><div className="sheet" onClick={e=>e.stopPropagation()}><div className="sheet-grip"/><h2>מי משחק כאן?</h2><p>בחירה תחליף את השחקן הנוכחי בהרכב.</p><div className="sheet-options">{selectedIds.map(id=><button className="sheet-option" key={id} onClick={()=>assignPlayer(id)}><Avatar name={nameOf(data.players,id)}/>{fullName(data.players,id)}</button>)}</div><button className="sheet-close" onClick={()=>setSlot(null)}>ביטול</button></div></div>}
-    {punchlineMatch&&<MatchPunchline key={punchlineMatch.id} match={punchlineMatch} players={data.players} onClose={()=>setPunchlineMatchId(null)} onGenerated={savePunchline}/>}
-    {freeFinish&&active&&<div className="sheet-backdrop" onClick={()=>setFreeFinish(false)}><div className="sheet" onClick={e=>e.stopPropagation()}>
-      <div className="sheet-grip"/><div className="eyebrow"><RotateCcw size={14}/> מצב חופשי</div><h2>מה קורה במשחק הבא?</h2>
+  return <div className="app">
+<header className="topbar">
+<div className="brand">
+<div className="brand-icon">F<span>2</span>
+</div>
+<span>FIFA זוגות</span>
+</div>
+<div className="header-actions">
+<InstallApp/>
+
+<button className="header-action" onClick={async()=>{await fetch('/api/auth/logout',{method:'POST'});localStorage.removeItem('fifa-bootstrap');location.reload()}}>
+<LogOut size={15}/>
+
+<span>יציאה</span>
+</button>
+</div>
+</header>
+    {error&&<div className="status-banner" role="alert">{offline&&<WifiOff size={14} style={{display:'inline',marginLeft:6}}/>
+}{error}<button style={{float:'left',border:0,background:'none',color:'inherit'}} onClick={()=>{setError('');if(offline)load()}} aria-label="סגירה">
+<X size={14}/>
+
+</button>
+</div>}
+    {loading?
+<div className="empty">טוענים את הערב…</div>:setup?
+<SetupView mode={setup} step={setupStep} players={data.players} groups={data.groups} selectedGroupId={selectedGroupId} selectedIds={selectedIds} lineup={lineup} nightTitle={nightTitle} presetName={presetName} busy={busy} crewPreset={crewPreset} onCrewPresetChange={chooseCrew} humorPreset={humorPreset} onHumorPresetChange={setHumorPreset} rulesPreset={rulesPreset} rulesEditable={setup==='new'||!active?.matches.length} gameMode={setup==='edit'?(active?.gameMode??'pairs'):selectedIds.length<4?'singles':'pairs'} onRulesPresetChange={setRulesPreset} onClose={()=>setSetup(null)} onStepChange={setSetupStep} onChoosePreset={choosePreset} onTogglePlayer={togglePlayer} onLineupChange={setLineup} onNightTitleChange={setNightTitle} onPresetNameChange={setPresetName} onSlotSelect={setSlot} onSaveGroup={saveGroup} onSaveSetup={saveSetup}/>
+:tab==='live'?
+<LiveView active={active} sessions={currentCrewSessions} players={data.players} busy={busy} detailMode={detailMode} effectiveType={effectiveType} isTechnical={isTechnical} resultType={resultType} selectedWinner={selectedWinner} technicalMinute={technicalMinute} eventType={eventType} eventPlayer={eventPlayer} eventText={eventText} eventMinute={eventMinute} events={events} showAllMatches={showAllMatches} onNewNight={()=>beginSetup('new')} onHistory={openHistory} onBench={()=>setTab('bench')} onScore={scoreChange} onDetailToggle={()=>setDetailMode(v=>!v)} onResultTypeChange={setResultType} onWinnerChange={setSelectedWinner} onTechnicalMinuteChange={setTechnicalMinute} onEventTypeChange={setEventType} onEventPlayerChange={setEventPlayer} onEventTextChange={setEventText} onEventMinuteChange={setEventMinute} onAddEvent={addEvent} onRemoveEvent={index=>setEvents(events.filter((_,i)=>i!==index))} onComplete={requestComplete} onEditSetup={()=>beginSetup('edit')} onShowAllToggle={()=>setShowAllMatches(v=>!v)} onPunchline={setPunchlineMatchId} onUndo={undo} onEndNight={()=>setEnding(true)} onAddNightPlayer={addPlayerToNight} onRemoveNightPlayer={removePlayerFromNight}/>
+:tab==='bench'?
+<BenchStudio session={active} sessions={currentCrewSessions} players={data.players} groups={data.groups} groupScope={activeGroupScope} onSaveQuote={saveQuote} onRemoveQuote={removeQuote} busy={busy}/>
+:tab==='history'?
+<HistoryView sessions={scopedSessions} players={data.players} groups={data.groups} groupScope={groupScope} showUngrouped={hasUngrouped} selected={selectedHistory} onGroupScopeChange={changeGroupScope} onSelect={setHistoryId} onPunchline={setPunchlineMatchId} onEdit={(sessionId,m)=>{setEditMatch({sessionId,match:m});setEditScore({A:m.scoreA,B:m.scoreB});setEditResultType(m.resultType);setEditWinner(m.winner||'A');setEditTechnicalMinute(m.technicalMinute===undefined?'':String(m.technicalMinute))}}/>
+:tab==='stats'?
+<StatsView players={data.players} matches={scopedMatches} groups={data.groups} groupScope={groupScope} showUngrouped={hasUngrouped} view={statsView} h2h={h2h} onGroupScopeChange={changeGroupScope} onViewChange={setStatsView} onH2hChange={setH2h} onPlayerClick={id=>{setProfileId(id);setTab('players')}}/>
+:<PlayersView players={data.players} sessions={scopedSessions} matches={scopedMatches} profile={profile} editing={profileEditing} profileName={profileName} profileNickname={profileNickname} profileActive={profileActive} newPlayer={newPlayer} newNickname={newNickname} busy={busy} onProfileSelect={id=>{setProfileId(id);setProfileEditing(false)}} onBack={()=>setProfileId(null)} onEditToggle={()=>{setProfileEditing(v=>!v);if(profile){setProfileName(profile.name);setProfileNickname(profile.nickname||'');setProfileActive(profile.active)}}} onProfileNameChange={setProfileName} onProfileNicknameChange={setProfileNickname} onProfileActiveChange={setProfileActive} onSaveProfile={saveProfile} onNewPlayerChange={setNewPlayer} onNewNicknameChange={setNewNickname} onAddPlayer={addPlayer} onOpenHistory={id=>{openHistory(id);setProfileId(null)}}/>
+}
+    {!setup&&<nav className="nav" aria-label="ניווט ראשי">
+<div className="nav-inner">{nav.map(item=>
+<button key={item.id} className={`nav-btn ${tab===item.id?'active':''}`} onClick={()=>{setTab(item.id);setHistoryId(null);setProfileId(null);setError('')}}>
+<item.icon size={21} strokeWidth={tab===item.id?2.5:1.8}/>
+{item.label}</button>)}</div>
+</nav>}
+    {slot&&<div className="sheet-backdrop" onClick={()=>setSlot(null)}>
+<div className="sheet" onClick={e=>e.stopPropagation()}>
+<div className="sheet-grip"/>
+
+<h2>מי משחק כאן?
+</h2>
+<p>בחירה תחליף את השחקן הנוכחי בהרכב.</p>
+<div className="sheet-options">{selectedIds.map(id=>
+<button className="sheet-option" key={id} onClick={()=>assignPlayer(id)}>
+<Avatar name={nameOf(data.players,id)}/>
+{fullName(data.players,id)}</button>)}</div>
+<button className="sheet-close" onClick={()=>setSlot(null)}>ביטול</button>
+</div>
+</div>}
+    {punchlineMatch&&<MatchPunchline key={punchlineMatch.id} match={punchlineMatch} players={data.players} onClose={()=>setPunchlineMatchId(null)} onGenerated={savePunchline}/>
+}
+    {freeFinish&&active&&<div className="sheet-backdrop" onClick={()=>setFreeFinish(false)}>
+<div className="sheet" onClick={e=>e.stopPropagation()}>
+      <div className="sheet-grip"/>
+
+<div className="eyebrow">
+<RotateCcw size={14}/>
+ מצב חופשי</div>
+<h2>מה קורה במשחק הבא?
+</h2>
       <p>{effectiveType==='normal'&&active.scoreA===active.scoreB?'התיקו יישמר כתיקו.':'התוצאה וההכרעה יישמרו כפי שבחרתם.'} בחרו אם ומי מתחלף.</p>
-      <div className="mode-row"><button className={`pill ${!freeRotationTeam?'selected':''}`} onClick={()=>{setFreeRotationTeam(null);setFreeLeaving(null)}}>אותו הרכב</button>{active.lineup.bench.length>0&&(['A','B'] as Team[]).map(team=><button key={team} className={`pill ${freeRotationTeam===team?'selected':''}`} onClick={()=>{setFreeRotationTeam(team);setFreeLeaving(null)}}>חילוף בקבוצה {team}</button>)}</div>
-      {freeRotationTeam&&<><p style={{marginTop:16}}>מי יוצא מקבוצה {freeRotationTeam}?</p><div className="sheet-options">{active.lineup[freeRotationTeam].map(id=><button key={id} className={`sheet-option ${freeLeaving===id?'selected':''}`} onClick={()=>setFreeLeaving(id)}><Avatar name={nameOf(data.players,id)}/>{fullName(data.players,id)}</button>)}</div><button className="secondary-btn" style={{width:'100%',marginTop:10}} onClick={()=>{const team=freeRotationTeam;if(team)setFreeLeaving(active.lineup[team][Math.floor(Math.random()*active.lineup[team].length)])}}><Shuffle size={17}/> שאפל מי יוצא</button><p style={{marginTop:16}}>מי נכנס מהספסל?</p><div className="sheet-options">{active.lineup.bench.map(id=><button key={id} className={`sheet-option ${freeEntering===id?'selected':''}`} onClick={()=>setFreeEntering(id)}><Avatar name={nameOf(data.players,id)}/>{fullName(data.players,id)}</button>)}</div></>}
-      <button className="primary-btn" style={{marginTop:18}} disabled={busy||Boolean(freeRotationTeam&&(!freeLeaving||!freeEntering))} onClick={()=>finishMatch()}>{busy?'שומר…':'שמירה ופתיחת המשחק הבא'}</button><button className="sheet-close" onClick={()=>setFreeFinish(false)}>חזרה לתוצאה</button>
-    </div></div>}
-    {leaving&&active&&rotationDecision?.loser&&<div className="sheet-backdrop" onClick={()=>setLeaving(false)}><div className="sheet" onClick={e=>e.stopPropagation()}>
-      <div className="sheet-grip"/><div className="eyebrow"><RotateCcw size={14}/> חילוף אוטומטי</div><h2>{isNormalTie?'מי יוצא מהוותיקים?':'מי יוצא מהמפסידים?'}</h2>
-      {(()=>{const decision=rotationDecision;return <><p>{nameOf(data.players,active.lineup.bench[0])} הבא בתור. {decision.requiresShuffle?'לשחקנים אותו רצף על המגרש — עושים שאפל כדי לקבוע מי יוצא.':`${nameOf(data.players,decision.leavingPlayerId!)} יוצא לפי חוקי הבית.`}</p>
-      <div className="sheet-options">{decision.candidates.map(id=><button className={`sheet-option ${shuffledLeavingId===id?'selected':''}`} key={id} disabled={busy||(!decision.requiresShuffle&&id!==decision.leavingPlayerId)} onClick={()=>decision.requiresShuffle?setShuffledLeavingId(id):finishMatch(id)}><Avatar name={nameOf(data.players,id)} tone="coral"/><span>{fullName(data.players,id)}<small>{decision.tenures[id]} משחקים ברצף{decision.leavingPlayerId===id?' · הוותיק יוצא':''}</small></span><ChevronLeft size={19} style={{marginRight:'auto'}}/></button>)}</div>
-      {decision.requiresShuffle&&<button className="secondary-btn" style={{width:'100%',marginTop:13}} disabled={busy} onClick={shuffleLeaving}><Shuffle size={17}/>{shuffledLeavingId?'שאפלו שוב':'שאפלו מי יוצא'}</button>}
+      <div className="mode-row">
+<button className={`pill ${!freeRotationTeam?'selected':''}`} onClick={()=>{setFreeRotationTeam(null);setFreeLeaving(null)}}>אותו הרכב</button>{active.lineup.bench.length>0&&(['A','B'] as Team[]).map(team=>
+<button key={team} className={`pill ${freeRotationTeam===team?'selected':''}`} onClick={()=>{setFreeRotationTeam(team);setFreeLeaving(null)}}>חילוף בקבוצה {team}</button>)}</div>
+      {freeRotationTeam&&<>
+<p style={{marginTop:16}}>מי יוצא מקבוצה {freeRotationTeam}?
+</p>
+<div className="sheet-options">{active.lineup[freeRotationTeam].map(id=>
+<button key={id} className={`sheet-option ${freeLeaving===id?'selected':''}`} onClick={()=>setFreeLeaving(id)}>
+<Avatar name={nameOf(data.players,id)}/>
+{fullName(data.players,id)}</button>)}</div>
+<button className="secondary-btn" style={{width:'100%',marginTop:10}} onClick={()=>{const team=freeRotationTeam;if(team)setFreeLeaving(active.lineup[team][Math.floor(Math.random()*active.lineup[team].length)])}}>
+<Shuffle size={17}/>
+ שאפל מי יוצא</button>
+<p style={{marginTop:16}}>מי נכנס מהספסל?
+</p>
+<div className="sheet-options">{active.lineup.bench.map(id=>
+<button key={id} className={`sheet-option ${freeEntering===id?'selected':''}`} onClick={()=>setFreeEntering(id)}>
+<Avatar name={nameOf(data.players,id)}/>
+{fullName(data.players,id)}</button>)}</div>
+</>
+}
+      <button className="primary-btn" style={{marginTop:18}} disabled={busy||Boolean(freeRotationTeam&&(!freeLeaving||!freeEntering))} onClick={()=>finishMatch()}>{busy?'שומר…':'שמירה ופתיחת המשחק הבא'}</button>
+<button className="sheet-close" onClick={()=>setFreeFinish(false)}>חזרה לתוצאה</button>
+    </div>
+</div>}
+    {leaving&&active&&rotationDecision?.loser&&<div className="sheet-backdrop" onClick={()=>setLeaving(false)}>
+<div className="sheet" onClick={e=>e.stopPropagation()}>
+      <div className="sheet-grip"/>
+
+<div className="eyebrow">
+<RotateCcw size={14}/>
+ חילוף אוטומטי</div>
+<h2>{isNormalTie?'מי יוצא מהוותיקים?':'מי יוצא מהמפסידים?'}</h2>
+      {(()=>{const decision=rotationDecision;return <>
+<p>{nameOf(data.players,active.lineup.bench[0])} הבא בתור. {decision.requiresShuffle?'לשחקנים אותו רצף על המגרש — עושים שאפל כדי לקבוע מי יוצא.':`${nameOf(data.players,decision.leavingPlayerId!)} יוצא לפי חוקי הבית.`}</p>
+      <div className="sheet-options">{decision.candidates.map(id=>
+<button className={`sheet-option ${shuffledLeavingId===id?'selected':''}`} key={id} disabled={busy||(!decision.requiresShuffle&&id!==decision.leavingPlayerId)} onClick={()=>decision.requiresShuffle?setShuffledLeavingId(id):finishMatch(id)}>
+<Avatar name={nameOf(data.players,id)} tone="coral"/>
+
+<span>{fullName(data.players,id)}<small>{decision.tenures[id]} משחקים ברצף{decision.leavingPlayerId===id?' · הוותיק יוצא':''}</small>
+</span>
+<ChevronLeft size={19} style={{marginRight:'auto'}}/>
+
+</button>)}</div>
+      {decision.requiresShuffle&&<button className="secondary-btn" style={{width:'100%',marginTop:13}} disabled={busy} onClick={shuffleLeaving}>
+<Shuffle size={17}/>
+{shuffledLeavingId?'שאפלו שוב':'שאפלו מי יוצא'}</button>}
       {shuffledLeavingId&&<button className="primary-btn" style={{marginTop:10}} disabled={busy} onClick={()=>finishMatch(shuffledLeavingId)}>אישור החילוף ופתיחת המשחק הבא</button>}
-      <button className="secondary-btn" style={{width:'100%',marginTop:10}} disabled={busy} onClick={skipBench}>דלג על {nameOf(data.players,active.lineup.bench[0])} — אותם ארבעה ממשיכים</button></>})()}
+      <button className="secondary-btn" style={{width:'100%',marginTop:10}} disabled={busy} onClick={skipBench}>דלג על {nameOf(data.players,active.lineup.bench[0])} — אותם ארבעה ממשיכים</button>
+</>
+})()}
       <button className="sheet-close" onClick={()=>setLeaving(false)}>חזרה לתוצאה</button>
-    </div></div>}
-    {ending&&<div className="sheet-backdrop" onClick={()=>setEnding(false)}><div className="sheet" onClick={e=>e.stopPropagation()}><div className="sheet-grip"/><h2>לסיים את הערב?</h2><p>המשחקים יישמרו בהיסטוריה. את הערב הפעיל לא יהיה אפשר להמשיך.</p><div className="inline-actions"><button className="danger-btn" disabled={busy} onClick={endNight}>כן, סיום ערב</button><button className="secondary-btn" onClick={()=>setEnding(false)}>להמשיך לשחק</button></div></div></div>}
-    {editMatch&&<div className="sheet-backdrop" onClick={()=>setEditMatch(null)}><div className="sheet" onClick={e=>e.stopPropagation()}><div className="sheet-grip"/><h2>תיקון משחק #{editMatch.match.sequenceNumber}</h2><p>{names(data.players,editMatch.match.lineupBefore.A)} מול {names(data.players,editMatch.match.lineupBefore.B)}</p><div className="row"><input className="input" type="number" min="0" max="99" aria-label="תוצאת קבוצה א" value={editScore.A} onChange={e=>setEditScore({...editScore,A:Number(e.target.value)})}/><span>:</span><input className="input" type="number" min="0" max="99" aria-label="תוצאת קבוצה ב" value={editScore.B} onChange={e=>setEditScore({...editScore,B:Number(e.target.value)})}/></div><div className="mode-row" style={{marginTop:15}}>{(['normal','penalties','golden_goal','technical'] as ResultType[]).map(t=><button key={t} className={`pill ${editResultType===t?'selected':''}`} disabled={t==='technical'&&!((editScore.A===3&&editScore.B===0)||(editScore.A===0&&editScore.B===3))} onClick={()=>setEditResultType(t)}>{resultLabel(t)}</button>)}</div>{editResultType==='technical'&&<div className="field"><label htmlFor="edit-technical-minute">דקת הטכני (רשות)</label><input id="edit-technical-minute" className="input" type="number" inputMode="numeric" min="0" max="130" value={editTechnicalMinute} onChange={e=>setEditTechnicalMinute(e.target.value)}/></div>}{(editResultType==='penalties'||editResultType==='golden_goal')&&<div className="mode-row">{(['A','B'] as Team[]).map(t=><button key={t} className={`pill ${editWinner===t?'selected':''}`} onClick={()=>setEditWinner(t)}>קבוצה {t}</button>)}</div>}<button className="primary-btn" style={{marginTop:18}} disabled={busy} onClick={saveEdit}>שמירת תיקון</button><button className="sheet-close" onClick={()=>setEditMatch(null)}>ביטול</button></div></div>}
+    </div>
+</div>}
+    {ending&&<div className="sheet-backdrop" onClick={()=>setEnding(false)}>
+<div className="sheet" onClick={e=>e.stopPropagation()}>
+<div className="sheet-grip"/>
+
+<h2>לסיים את הערב?
+</h2>
+<p>המשחקים יישמרו בהיסטוריה. את הערב הפעיל לא יהיה אפשר להמשיך.</p>
+<div className="inline-actions">
+<button className="danger-btn" disabled={busy} onClick={endNight}>כן, סיום ערב</button>
+<button className="secondary-btn" onClick={()=>setEnding(false)}>להמשיך לשחק</button>
+</div>
+</div>
+</div>}
+    {editMatch&&<div className="sheet-backdrop" onClick={()=>setEditMatch(null)}>
+<div className="sheet" onClick={e=>e.stopPropagation()}>
+<div className="sheet-grip"/>
+
+<h2>תיקון משחק #{editMatch.match.sequenceNumber}</h2>
+<p>{names(data.players,editMatch.match.lineupBefore.A)} מול {names(data.players,editMatch.match.lineupBefore.B)}</p>
+<div className="row">
+<input className="input" type="number" min="0" max="99" aria-label="תוצאת קבוצה א" value={editScore.A} onChange={e=>setEditScore({...editScore,A:Number(e.target.value)})}/>
+
+<span>:</span>
+<input className="input" type="number" min="0" max="99" aria-label="תוצאת קבוצה ב" value={editScore.B} onChange={e=>setEditScore({...editScore,B:Number(e.target.value)})}/>
+
+</div>
+<div className="mode-row" style={{marginTop:15}}>{(['normal','penalties','golden_goal','technical'] as ResultType[]).map(t=>
+<button key={t} className={`pill ${editResultType===t?'selected':''}`} disabled={t==='technical'&&!((editScore.A===3&&editScore.B===0)||(editScore.A===0&&editScore.B===3))} onClick={()=>setEditResultType(t)}>{resultLabel(t)}</button>)}</div>{editResultType==='technical'&&<div className="field">
+<label htmlFor="edit-technical-minute">דקת הטכני (רשות)</label>
+<input id="edit-technical-minute" className="input" type="number" inputMode="numeric" min="0" max="130" value={editTechnicalMinute} onChange={e=>setEditTechnicalMinute(e.target.value)}/>
+
+</div>}{(editResultType==='penalties'||editResultType==='golden_goal')&&<div className="mode-row">{(['A','B'] as Team[]).map(t=>
+<button key={t} className={`pill ${editWinner===t?'selected':''}`} onClick={()=>setEditWinner(t)}>קבוצה {t}</button>)}</div>}<button className="primary-btn" style={{marginTop:18}} disabled={busy} onClick={saveEdit}>שמירת תיקון</button>
+<button className="sheet-close" onClick={()=>setEditMatch(null)}>ביטול</button>
+</div>
+</div>}
   </div>;
 
 

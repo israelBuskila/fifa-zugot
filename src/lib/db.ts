@@ -22,6 +22,7 @@ export async function ensureIndexes() {
     groups.createIndex({id:1},{unique:true}),
     sessions.createIndex({id:1},{unique:true}),
     sessions.createIndex({status:1,startedAt:-1}),
+    sessions.createIndex({groupId:1,startedAt:-1}),
     sessions.createIndex({status:1},{unique:true,partialFilterExpression:{status:'active'}}),
     sessions.createIndex({date:-1})
   ]);

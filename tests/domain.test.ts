@@ -1,10 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { completeMatch, determineWinner, getCurrentCourtTenure, getCurrentPairTenure, getHeadToHead, getPairStats, getPlayerStats, getRotationDecision, getRoundProgress, getTechnicalStats, getPlayerRecords, getAllTimeRecords, getTieRotationDecision, reviseMatchResult, rotateLineup, shuffleLineup, skipNextBenchPlayer, undoLastMatch, validateLineup, type Lineup, type Session } from '../src/lib/domain';
+import { completeMatch, determineWinner, getCurrentCourtTenure, getCurrentPairTenure, getHeadToHead, getPairStats, getPlayerStats, getRotationDecision, getRoundProgress, getTechnicalStats, getPlayerRecords, getAllTimeRecords, getTieRotationDecision, resolveSessionGroupId, reviseMatchResult, rotateLineup, shuffleLineup, skipNextBenchPlayer, undoLastMatch, validateLineup, type Group, type Lineup, type Session } from '../src/lib/domain';
 const lineup:Lineup={A:['a','b'],B:['c','d'],bench:['e']};
 const now='2026-10-01T18:00:00.000Z';
 function session():Session{return {id:'night',title:'Test',date:'2026-10-01',startedAt:now,status:'active',playerIds:['a','b','c','d','e'],lineup:{A:['a','b'],B:['c','d'],bench:['e']},scoreA:0,scoreB:0,matchStartedAt:now,matches:[],version:1,updatedAt:now}}
 function singles(playerIds=['a','b','c'],preset:'house'|'free'='free'):Session{return {...session(),playerIds,lineup:{A:['a'],B:['b'],bench:playerIds.slice(2)},gameMode:'singles',rules:{preset,version:1}}}
+test('session crew scope prefers an explicit group and supports exact legacy rosters',()=>{
+  const groups:Group[]=[
+    {id:'home',name:'החבורה',playerIds:['a','b','c','d','e'],createdAt:now,crew:'home'},
+    {id:'friends',name:'חברים',playerIds:['a','b','c','d','e'],createdAt:now,crew:'other'},
+  ];
+  assert.equal(resolveSessionGroupId({...session(),playerIds:['a','b','c','d','guest'],groupId:'friends'},groups),'friends');
+  assert.equal(resolveSessionGroupId(session(),groups),'home');
+  assert.equal(resolveSessionGroupId({...session(),playerIds:['a','b','c','d']},groups),undefined);
+});
 test('two-player free night can save a normal draw without a rotation',()=>{
   const start=singles(['a','b']);validateLineup(start.playerIds,start.lineup,'singles');
   const done=completeMatch(start,{scoreA:2,scoreB:2,resultType:'normal'});
