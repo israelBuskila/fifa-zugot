@@ -121,7 +121,7 @@ export const banterMemories: readonly BanterMemory[] = [
 export interface SuggestedMemory { memory: BanterMemory; reason: string }
 
 export function suggestBanterMemories(session: Session, match?: Match): SuggestedMemory[] {
-  if (session.crew === 'other') return [];
+  if (session.crew === 'other' || session.humor === 'neutral') return [];
   const currentRound = getRoundProgress(session.matches);
   const result = match ?? session.matches.at(-1);
   const currentIsTechnical = (session.scoreA === 3 && session.scoreB === 0) || (session.scoreA === 0 && session.scoreB === 3);

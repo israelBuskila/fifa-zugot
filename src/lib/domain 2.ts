@@ -1,9 +1,5 @@
 export class DomainError extends Error {}
 export type Team = 'A' | 'B';
-export type RulePreset = 'house' | 'free';
-export type CrewPreset = 'home' | 'other';
-export type HumorPreset = 'house' | 'neutral';
-export type GameMode = 'singles' | 'pairs';
 export type ResultType = 'normal' | 'penalties' | 'golden_goal' | 'technical';
 export type MatchEventType = 'goal' | 'own_goal' | 'penalty' | 'technical' | 'funny';
 export interface Player { id: string; name: string; nickname?: string; avatar?: string; active: boolean; createdAt: string }
@@ -19,17 +15,16 @@ export interface Match {
   punchline?: string;
   punchlineStyle?: number;
   events: MatchEvent[]; startedAt: string; endedAt: string;
-  benchBefore: string[]; leavingPlayerId?: string; enteringPlayerId?: string; lineupBefore: Lineup; lineupAfter: Lineup;
+  benchBefore: string[]; leavingPlayerId?: string; lineupBefore: Lineup; lineupAfter: Lineup;
 }
 export interface Session {
   id: string; title: string; date: string; startedAt: string; endedAt?: string; status: 'active' | 'ended';
   notes?: string; quotes?: NightQuote[]; playerIds: string[]; lineup: Lineup; scoreA: number; scoreB: number;
   matchStartedAt: string; matches: Match[]; version: number; updatedAt: string;
-  rules?: { preset: RulePreset; version: number }; gameMode?: GameMode; crew?: CrewPreset; humor?: HumorPreset;
 }
 export const cloneLineup = (lineup: Lineup): Lineup => ({ A: [...lineup.A], B: [...lineup.B], bench: [...lineup.bench] });
-export function shuffleLineup(playerIds: string[], previous?: Lineup, random = Math.random, teamSize: 1 | 2 = 2): Lineup {
-  if (playerIds.length < teamSize * 2 || new Set(playerIds).size !== playerIds.length) throw new DomainError('אין מספיק שחקנים להרכב.');
+export function shuffleLineup(playerIds: string[], previous?: Lineup, random = Math.random): Lineup {
+  if (playerIds.length < 4 || new Set(playerIds).size !== playerIds.length) throw new DomainError('יש לבחור לפחות ארבעה שחקנים שונים.');
   const pairings = (lineup: Lineup) => [lineup.A.slice().sort().join(':'), lineup.B.slice().sort().join(':')].sort().join('|');
   let shuffled = [...playerIds];
   for (let attempt = 0; attempt < 8; attempt++) {
@@ -38,33 +33,29 @@ export function shuffleLineup(playerIds: string[], previous?: Lineup, random = M
       const other = Math.floor(random() * (index + 1));
       [shuffled[index], shuffled[other]] = [shuffled[other], shuffled[index]];
     }
-    const candidate = { A: shuffled.slice(0, teamSize), B: shuffled.slice(teamSize, teamSize * 2), bench: shuffled.slice(teamSize * 2) };
+    const candidate = { A: shuffled.slice(0, 2), B: shuffled.slice(2, 4), bench: shuffled.slice(4) };
     if (!previous || pairings(candidate) !== pairings(previous)) return candidate;
   }
-  [shuffled[0], shuffled[teamSize]] = [shuffled[teamSize], shuffled[0]];
-  return { A: shuffled.slice(0, teamSize), B: shuffled.slice(teamSize, teamSize * 2), bench: shuffled.slice(teamSize * 2) };
+  [shuffled[1], shuffled[2]] = [shuffled[2], shuffled[1]];
+  return { A: shuffled.slice(0, 2), B: shuffled.slice(2, 4), bench: shuffled.slice(4) };
 }
-export function validateLineup(playerIds: string[], lineup: Lineup, gameMode: GameMode = 'pairs'): void {
+export function validateLineup(playerIds: string[], lineup: Lineup): void {
   const all = [...lineup.A, ...lineup.B, ...lineup.bench];
-  const teamSize = gameMode === 'singles' ? 1 : 2;
-  if (lineup.A.length !== teamSize || lineup.B.length !== teamSize || playerIds.length < teamSize * 2 ||
+  if (lineup.A.length !== 2 || lineup.B.length !== 2 || playerIds.length < 4 ||
       all.length !== playerIds.length || new Set(all).size !== all.length ||
       new Set(playerIds).size !== playerIds.length || all.some(id => !playerIds.includes(id))) {
-    throw new DomainError(`יש לבחור ${teamSize * 2} שחקנים למגרש ולשבץ את השאר בספסל.`);
+    throw new DomainError('יש לבחור ארבעה שחקנים לשתי הקבוצות ולשבץ את השאר בספסל.');
   }
 }
-export function determineWinner(scoreA: number, scoreB: number, resultType: ResultType, selected?: Team, enforceTechnical = true): Team | null {
+export function determineWinner(scoreA: number, scoreB: number, resultType: ResultType, selected?: Team): Team | null {
   if (!Number.isInteger(scoreA) || !Number.isInteger(scoreB) || scoreA < 0 || scoreB < 0 || scoreA > 99 || scoreB > 99) throw new DomainError('תוצאה לא תקינה.');
   if (scoreA === 3 && scoreB === 0 || scoreA === 0 && scoreB === 3) {
-    if (resultType === 'golden_goal' || resultType === 'penalties') throw new DomainError('פנדלים וגול זהב אפשר לבחור רק כשהתוצאה בתיקו.');
-    if (resultType !== 'technical' && enforceTechnical) throw new DomainError('משחק שמגיע ל־3:0 מסתיים בטכני.');
-    if (resultType !== 'technical') return scoreA === 3 ? 'A' : 'B';
+    if (resultType !== 'technical') throw new DomainError('משחק שמגיע ל־3:0 מסתיים בטכני.');
     const winner = scoreA === 3 ? 'A' : 'B';
     if (selected && selected !== winner) throw new DomainError('המנצח בטכני חייב להתאים לתוצאה.');
     return winner;
   }
   if (resultType === 'technical') throw new DomainError('טכני נרשם רק בתוצאה 3:0.');
-  if (resultType === 'penalties' && scoreA !== scoreB) throw new DomainError('פנדלים אפשר לבחור רק כשהתוצאה בתיקו.');
   if (resultType === 'golden_goal' && scoreA !== scoreB) throw new DomainError('גול זהב אפשר לבחור רק כשהתוצאה בתיקו.');
   if (resultType !== 'normal') {
     if (!selected) throw new DomainError('יש לבחור קבוצה מנצחת.');
@@ -77,8 +68,8 @@ export function validateTechnicalMinute(resultType: ResultType, minute?: number)
     throw new DomainError('דקת טכני חייבת להיות בין 0 ל־130 ורק במשחק טכני.');
   }
 }
-export function reviseMatchResult(match: Match, scoreA: number, scoreB: number, resultType: ResultType, selected?: Team, technicalMinute?: number, rulesPreset: RulePreset = 'house'): Match {
-  const winner = determineWinner(scoreA, scoreB, resultType, selected, rulesPreset === 'house');
+export function reviseMatchResult(match: Match, scoreA: number, scoreB: number, resultType: ResultType, selected?: Team, technicalMinute?: number): Match {
+  const winner = determineWinner(scoreA, scoreB, resultType, selected);
   validateTechnicalMinute(resultType, technicalMinute);
   const { punchline: ignoredPunchline, punchlineStyle: ignoredStyle, ...rest } = match;
   void ignoredPunchline;
@@ -86,7 +77,6 @@ export function reviseMatchResult(match: Match, scoreA: number, scoreB: number, 
   return { ...rest, scoreA, scoreB, resultType, winner, technicalMinute: resultType === 'technical' ? technicalMinute : undefined };
 }
 export interface RotationDecision { loser: Team | null; candidates: string[]; tenures: Record<string, number>; leavingPlayerId?: string; requiresShuffle: boolean; nextBenchPlayerId?: string }
-export interface TieRotationDecision extends RotationDecision { requiresGoldenGoal: boolean; pairTenures: Record<Team, number> }
 export function getCurrentCourtTenure(matches: Match[], lineup: Lineup, playerId: string): number {
   if (![...lineup.A, ...lineup.B].includes(playerId)) return 0;
   let tenure = 0;
@@ -99,36 +89,12 @@ export function getCurrentCourtTenure(matches: Match[], lineup: Lineup, playerId
 export function getRotationDecision(matches: Match[], lineup: Lineup, winner: Team | null): RotationDecision {
   if (!winner || !lineup.bench.length) return { loser: null, candidates: [], tenures: {}, requiresShuffle: false };
   const loser: Team = winner === 'A' ? 'B' : 'A';
-  return getTeamRotationDecision(matches, lineup, loser);
-}
-function getTeamRotationDecision(matches: Match[], lineup: Lineup, team: Team): RotationDecision {
-  const candidates = [...lineup[team]];
+  const candidates = [...lineup[loser]];
   const tenures = Object.fromEntries(candidates.map(playerId => [playerId, getCurrentCourtTenure(matches, lineup, playerId)]));
   const [first, second] = candidates;
-  const requiresShuffle = Boolean(second && tenures[first] === tenures[second]);
-  const leavingPlayerId = requiresShuffle ? undefined : !second || tenures[first] > tenures[second] ? first : second;
-  return { loser: team, candidates, tenures, leavingPlayerId, requiresShuffle, nextBenchPlayerId: lineup.bench[0] };
-}
-export function getCurrentPairTenure(matches: Match[], lineup: Lineup, team: Team): number {
-  const pair = new Set(lineup[team]);
-  let tenure = 0;
-  for (let index = matches.length - 1; index >= 0; index--) {
-    const participants = matches[index].participants.filter(participant => pair.has(participant.playerId));
-    if (participants.length !== 2 || participants[0].team !== participants[1].team) break;
-    tenure++;
-  }
-  return tenure;
-}
-export function getTieRotationDecision(matches: Match[], lineup: Lineup): TieRotationDecision {
-  const singles = lineup.A.length === 1;
-  const pairTenures = singles
-    ? { A: getCurrentCourtTenure(matches, lineup, lineup.A[0]), B: getCurrentCourtTenure(matches, lineup, lineup.B[0]) }
-    : { A: getCurrentPairTenure(matches, lineup, 'A'), B: getCurrentPairTenure(matches, lineup, 'B') };
-  if (!lineup.bench.length || matches.length === 0 || pairTenures.A === pairTenures.B) {
-    return { loser: null, candidates: [], tenures: {}, requiresShuffle: false, requiresGoldenGoal: true, pairTenures };
-  }
-  const veteranTeam: Team = pairTenures.A > pairTenures.B ? 'A' : 'B';
-  return { ...getTeamRotationDecision(matches, lineup, veteranTeam), requiresGoldenGoal: false, pairTenures };
+  const requiresShuffle = tenures[first] === tenures[second];
+  const leavingPlayerId = requiresShuffle ? undefined : tenures[first] > tenures[second] ? first : second;
+  return { loser, candidates, tenures, leavingPlayerId, requiresShuffle, nextBenchPlayerId: lineup.bench[0] };
 }
 export function skipNextBenchPlayer(lineup: Lineup): Lineup {
   const next = cloneLineup(lineup);
@@ -136,56 +102,26 @@ export function skipNextBenchPlayer(lineup: Lineup): Lineup {
   return next;
 }
 export function rotateLineup(lineup: Lineup, winner: Team | null, leavingPlayerId?: string): Lineup {
-  if (!winner) return cloneLineup(lineup);
-  const loser: Team = winner === 'A' ? 'B' : 'A';
-  return rotateTeamLineup(lineup, loser, leavingPlayerId);
-}
-function rotateTeamLineup(lineup: Lineup, team: Team, leavingPlayerId?: string, enteringPlayerId?: string): Lineup {
   const next = cloneLineup(lineup);
-  if (!next.bench.length) return next;
-  if (!leavingPlayerId || !next[team].includes(leavingPlayerId)) throw new DomainError('יש לבחור שחקן יוצא מהקבוצה שמתחלפת.');
-  const entrantIndex = enteringPlayerId ? next.bench.indexOf(enteringPlayerId) : 0;
-  if (entrantIndex < 0) throw new DomainError('השחקן הנכנס אינו בספסל.');
-  next[team][next[team].indexOf(leavingPlayerId)] = next.bench.splice(entrantIndex, 1)[0];
+  if (!winner || !next.bench.length) return next;
+  const loser: Team = winner === 'A' ? 'B' : 'A';
+  if (!leavingPlayerId || !next[loser].includes(leavingPlayerId)) throw new DomainError('יש לבחור שחקן יוצא מהקבוצה המפסידה.');
+  next[loser][next[loser].indexOf(leavingPlayerId)] = next.bench.shift()!;
   next.bench.push(leavingPlayerId);
   return next;
 }
-export function completeMatch(session: Session, input: { scoreA: number; scoreB: number; resultType: ResultType; selectedWinner?: Team; technicalMinute?: number; leavingPlayerId?: string; enteringPlayerId?: string; rotationTeam?: Team; skipRotation?: boolean; events?: MatchEvent[] }, now = new Date().toISOString()): Session {
+export function completeMatch(session: Session, input: { scoreA: number; scoreB: number; resultType: ResultType; selectedWinner?: Team; technicalMinute?: number; leavingPlayerId?: string; skipRotation?: boolean; events?: MatchEvent[] }, now = new Date().toISOString()): Session {
   if (session.status !== 'active') throw new DomainError('הערב כבר הסתיים.');
-  validateLineup(session.playerIds, session.lineup, session.gameMode ?? 'pairs');
-  const freeMode = session.rules?.preset === 'free';
-  const winner = determineWinner(input.scoreA, input.scoreB, input.resultType, input.selectedWinner, !freeMode);
+  validateLineup(session.playerIds, session.lineup);
+  const winner = determineWinner(input.scoreA, input.scoreB, input.resultType, input.selectedWinner);
   validateTechnicalMinute(input.resultType, input.technicalMinute);
   const before = cloneLineup(session.lineup);
-  const isNormalDraw = input.resultType === 'normal' && !winner;
-  let rotationTeam: Team | null = null;
-  if (freeMode) {
-    if (input.skipRotation) throw new DomainError('במצב חופשי בוחרים חילוף או ממשיכים עם אותו הרכב.');
-    rotationTeam = input.rotationTeam ?? null;
-    if (rotationTeam && !before.bench.length) throw new DomainError('אין שחקן ממתין לחילוף.');
-    if (!rotationTeam && (input.leavingPlayerId || input.enteringPlayerId)) throw new DomainError('יש לבחור קבוצה לחילוף.');
-  } else if (isNormalDraw) {
-    const decision = getTieRotationDecision(session.matches, before);
-    if (decision.requiresGoldenGoal) throw new DomainError('בתיקו הזה ממשיכים לגול זהב.');
-    if (input.rotationTeam !== decision.loser) throw new DomainError('בתיקו הוותיקים הם הקבוצה שמתחלפת.');
-    rotationTeam = decision.loser;
-  } else {
-    if (input.scoreA === input.scoreB) {
-      const decision = getTieRotationDecision(session.matches, before);
-      if (decision.requiresGoldenGoal && input.resultType !== 'golden_goal') throw new DomainError('בתיקו הזה ממשיכים לגול זהב.');
-      if (!decision.requiresGoldenGoal) throw new DomainError('בתיקו הזה הוותיקים מתחלפים ללא הכרעה נוספת.');
-    }
-    if (input.rotationTeam) throw new DomainError('קבוצה מתחלפת נשלחת רק בתיקו רגיל.');
-    rotationTeam = winner ? winner === 'A' ? 'B' : 'A' : null;
-  }
-  if (!freeMode && input.enteringPlayerId && input.enteringPlayerId !== before.bench[0]) throw new DomainError('בחוקי הבית נכנס הראשון בתור.');
-  const after = input.skipRotation ? skipNextBenchPlayer(before) : rotationTeam ? rotateTeamLineup(before, rotationTeam, input.leavingPlayerId, input.enteringPlayerId) : before;
+  const after = input.skipRotation ? skipNextBenchPlayer(before) : rotateLineup(before, winner, input.leavingPlayerId);
   const match: Match = { id: crypto.randomUUID(), sessionId: session.id, sequenceNumber: session.matches.length + 1,
     participants: [...before.A.map(playerId => ({playerId, team: 'A' as Team})), ...before.B.map(playerId => ({playerId, team: 'B' as Team}))],
     scoreA: input.scoreA, scoreB: input.scoreB, winner, resultType: input.resultType, technicalMinute: input.technicalMinute, events: input.events ?? [],
     startedAt: session.matchStartedAt, endedAt: now, benchBefore: before.bench,
-    leavingPlayerId: !input.skipRotation && rotationTeam && before.bench.length ? input.leavingPlayerId : undefined,
-    enteringPlayerId: !input.skipRotation && rotationTeam && before.bench.length ? input.enteringPlayerId ?? before.bench[0] : undefined,
+    leavingPlayerId: !input.skipRotation && winner && before.bench.length ? input.leavingPlayerId : undefined,
     lineupBefore: before, lineupAfter: after };
   return { ...session, matches: [...session.matches, match], lineup: after, scoreA: 0, scoreB: 0, matchStartedAt: now, updatedAt: now, version: session.version + 1 };
 }

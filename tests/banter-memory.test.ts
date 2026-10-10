@@ -20,9 +20,11 @@ test('curated archive contains sources and selects a neutral opening before resu
 test('another crew never receives the home chat archive, even with the same players', () => {
   const other: Session = {...session(),crew:'other'};
   assert.deepEqual(suggestBanterMemories(other),[]);
+  assert.deepEqual(suggestBanterMemories({...other,humor:'house'}),[]);
   const played = completeMatch({...other,rules:{preset:'free',version:1}},{scoreA:1,scoreB:0,resultType:'normal'});
   assert.deepEqual(suggestBanterMemories(played,played.matches[0]),[]);
   assert.ok(suggestBanterMemories({...session(),crew:'home'}).length > 0);
+  assert.deepEqual(suggestBanterMemories({...session(),crew:'home',humor:'neutral'}),[]);
 });
 
 test('technical and its recorded minute select relevant memories', () => {

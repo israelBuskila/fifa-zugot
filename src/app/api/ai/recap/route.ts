@@ -26,6 +26,7 @@ export async function POST(request: Request) {
     const { sessions, players } = await collections();
     const session = await sessions.findOne({ id: sessionId });
     if (!session) return NextResponse.json({ error: 'הערב לא נמצא.' }, { status: 404 });
+    const humor = session.humor ?? (session.crew === 'other' ? 'neutral' : 'house');
     if (!session.matches.length) return NextResponse.json({ error: 'יש לסיים משחק לפני יצירת סיכום.' }, { status: 400 });
     const roster = await players.find({ id: { $in: session.playerIds } }).toArray();
     const name = (id: string) => roster.find(player => player.id === id)?.nickname || roster.find(player => player.id === id)?.name || 'שחקן';
@@ -56,12 +57,16 @@ export async function POST(request: Request) {
         ...suggestBanterMemories(session).slice(0,3).map(({memory,reason}) => ({text:memory.text,speaker:memory.speaker,date:memory.date,whyRelevant:reason})),
         ...(session.quotes ?? []).slice(-6).map(quote => ({text:quote.text,speaker:name(quote.playerId),date:quote.createdAt,whyRelevant:`נשמר באפליקציה לפני משחק ${quote.matchNumber}`})),
       ],
-      writingVoices: session.crew === 'other' ? [] : groupVoiceNotes(roster),
+      writingVoices: humor === 'house' && session.crew !== 'other' ? groupVoiceNotes(roster) : [],
     };
     const quoteOnly=mode==='quote';
+    const neutralInstructions = quoteOnly ? 'צור משפט ערב חדש, קצר ומצחיק בעברית, המבוסס על עובדה אמיתית מהערב. אל תשתמש בשפה הפנימית או בזיכרונות של החבורה הקבועה ואל תמציא ציטוט אמיתי. החזר רק את המשפט, בלי Markdown.' : 'כתוב סיכום של ערב FIFA בין חברים בעברית, 3 עד 5 משפטים קצרים המבוססים רק על הנתונים שסופקו. סיים בעקיצה קלילה על אירוע אמיתי. בשורה נפרדת שמתחילה בדיוק NIGHT_QUOTE: כתוב משפט ערב חדש שאינו ציטוט אמיתי. אל תשתמש בשפה הפנימית או בזיכרונות של החבורה הקבועה. בלי Markdown.';
+    const borrowedHouseInstructions = quoteOnly ? 'צור משפט ערב חדש וקצר בסגנון החבורה הקבועה. מותר להשתמש בבורקס, פרנג׳ס, ועדת משמעת, ראיות וסבבים; אסור להשתמש בציטוטים, בשמות, בדמויות או בזיכרונות מארכיון החבורה. הסתמך רק על עובדות הערב ואל תמציא ציטוט אמיתי. בלי Markdown.' : 'כתוב סיכום ערב FIFA בעברית, 3 עד 5 משפטים קצרים, בסגנון החבורה הקבועה. מותר להשתמש בבורקס, פרנג׳ס, ועדת משמעת, ראיות וסבבים; אסור להשתמש בציטוטים, בשמות, בדמויות או בזיכרונות מארכיון החבורה. הסתמך רק על עובדות הערב. בשורה נפרדת שמתחילה בדיוק NIGHT_QUOTE: כתוב משפט חדש שאינו ציטוט אמיתי. בלי Markdown.';
+    const homeInstructions = quoteOnly ? 'צור משפט ערב אחד בלבד בעברית, קצר, חד ומצחיק, בסגנון הטראש־טוק של archive ו-writingVoices. המשפט צריך להישען על עובדה אמיתית מהערב ולהיות ניסוח חדש, לא ציטוט אמיתי. החזר רק את המשפט בלי מרכאות ובלי Markdown.' : 'כתוב סיכום ערב FIFA בעברית של החבורה, 3 עד 5 משפטים קצרים המבוססים על עובדות הערב, וסיים בעקיצה אחת. בשורה חדשה שמתחילה בדיוק NIGHT_QUOTE: כתוב משפט ערב חדש בסגנון archive ו-writingVoices. אל תציג ציטוט או זיכרון ישן כאילו נאמר הערב ואל תמציא תוצאות או אירועים. בלי Markdown.';
+    const aiInstructions = humor === 'neutral' ? neutralInstructions : session.crew === 'other' ? borrowedHouseInstructions : homeInstructions;
     const { text } = await generateText({
       model: createGoogle({ apiKey: process.env.GEMINI_API_KEY })('gemini-3.5-flash-lite'),
-      instructions: session.crew === 'other' ? (quoteOnly ? "כתוב משפט ערב חדש, קצר ומצחיק בעברית, המבוסס על עובדה אמיתית מהמשחקים של הערב. אל תשתמש בבדיחות או בדמויות של חבורה אחרת, ואל תמציא ציטוט אמיתי. בלי Markdown." : "כתוב סיכום של ערב FIFA בין חברים בעברית, 3 עד 5 משפטים קצרים המבוססים רק על הנתונים שסופקו. סיים בעקיצה קלילה על אירוע אמיתי מהערב. בשורה נפרדת שמתחילה בדיוק NIGHT_QUOTE: כתוב משפט ערב חדש, לא ציטוט אמיתי. אל תשתמש בבדיחות פנימיות או בזיכרונות של חבורה אחרת. בלי Markdown.") : quoteOnly ? 'צור משפט ערב אחד בלבד בעברית, קצר, חד ומצחיק, בסגנון משפטי המתח והטראש-טוק של archive ו-writingVoices. המשפט צריך להישען על עובדה אמיתית מהערב אבל להיות ניסוח חדש, כמו טיזר לקראת הערב הבא. אל תמציא תוצאה, אירוע או ציטוט כאילו באמת נאמר. החזר רק את המשפט בלי מרכאות ובלי Markdown.' : 'כתוב סיכום ערב FIFA זוגות בעברית של החבורה, 3 עד 5 משפטים קצרים: מה קרה, מי בלט, ולבסוף עקיצה אחת שמגובה בעובדה. אחריו, בשורה חדשה שמתחילה בדיוק NIGHT_QUOTE: כתוב משפט ערב אחד קצר, חד ומצחיק בסגנון משפטי המתח והטראש-טוק שב-archive. זה ניסוח AI חדש שמבוסס על עובדות הערב, לא ציטוט אמיתי. השתמש רק בעובדות המשחק שב-JSON. ציטוטים שמורים הם דברים ששחקנים אמרו במשחק הנקוב; קטעי archive נאמרו בעבר עם מקור ותאריך, ואסור להציג אותם כאילו נאמרו הערב. אל תמציא משחקים, שערים, שמות או אירועים. בלי JSON או Markdown.',
+      instructions: aiInstructions,
       prompt: JSON.stringify(facts),
       maxOutputTokens: 260,
       abortSignal: AbortSignal.timeout(15000),

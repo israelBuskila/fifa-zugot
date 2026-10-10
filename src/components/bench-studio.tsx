@@ -10,7 +10,8 @@ const pairName = (players: Player[], ids: string[]) => ids.map(id => playerName(
 
 export function liveLine(session: Session, players: Player[]): string {
   const { scoreA, scoreB, matches } = session;
-  if (session.crew === 'other') {
+  const neutralHumor = (session.humor ?? (session.crew === 'other' ? 'neutral' : 'house')) === 'neutral';
+  if (neutralHumor) {
     const recentQuote = [...(session.quotes ?? [])].reverse().find(quote => quote.matchNumber === matches.length + 1);
     if (recentQuote) return `״${recentQuote.text}״ — ${playerName(players,recentQuote.playerId)}. עכשיו נראה מה יקרה במשחק.`;
     if (scoreA !== scoreB) return `${pairName(players, scoreA > scoreB ? session.lineup.A : session.lineup.B)} מובילים ${Math.max(scoreA,scoreB)}:${Math.min(scoreA,scoreB)}.`;
@@ -36,9 +37,10 @@ export function liveLine(session: Session, players: Player[]): string {
 
 export function CommentaryStrip({ session, players, onOpen }: { session: Session; players: Player[]; onOpen: () => void }) {
   const archive = suggestBanterMemories(session)[0]?.memory;
+  const neutralHumor = (session.humor ?? (session.crew === 'other' ? 'neutral' : 'house')) === 'neutral';
   return <button className="commentary-strip" onClick={onOpen}>
     <span className="commentary-icon"><Mic2 size={19}/></span>
-    <span className="commentary-copy"><small>{session.crew === 'other' ? 'מהצד · עדכון המשחק' : 'מהספסל · הפרנג׳ס מדבר'}</small><strong>{liveLine(session, players)}</strong>{archive && <em>מהארכיון: ״{archive.text}״ · {archive.speaker}</em>}</span>
+    <span className="commentary-copy"><small>{neutralHumor ? 'מהצד · עדכון המשחק' : 'מהספסל · הפרנג׳ס מדבר'}</small><strong>{liveLine(session, players)}</strong>{archive && <em>מהארכיון: ״{archive.text}״ · {archive.speaker}</em>}</span>
     <ArrowLeft size={19} className="commentary-arrow"/>
   </button>;
 }
