@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { ArrowLeft, RefreshCw, Sparkles } from 'lucide-react';
 import type { Match, Player } from '@/lib/domain';
+import { SpeechButton } from '@/components/speech-button';
 
 const nameOf = (players: Player[], id: string) => players.find(player => player.id === id)?.nickname || players.find(player => player.id === id)?.name || 'שחקן';
 
@@ -49,7 +50,7 @@ export function MatchPunchline({ match, players, onClose, onGenerated }: {
       <div className="punchline-result">
         <span>{teamA}</span><strong dir="ltr">{match.scoreA} : {match.scoreB}</strong><span>{teamB}</span>
       </div>
-      {punchline ? <div className="commentator-card"><span>🎙️ פרשן הבית</span><p className="punchline-text" aria-live="polite">{punchline}</p></div> : <div className="commentator-card muted-card"><span>🎙️ פרשן הבית</span><p>התוצאה בפנים. עכשיו תנו ל־AI לפתוח את הפה.</p></div>}
+      {punchline ? <div className="commentator-card"><span>🎙️ פרשן הבית</span><p className="punchline-text" aria-live="polite">{punchline}</p><SpeechButton text={punchline} label="הקרא את העקיצה"/></div> : <div className="commentator-card muted-card"><span>🎙️ פרשן הבית</span><p>התוצאה בפנים. עכשיו תנו ל־AI לפתוח את הפה.</p></div>}
       <div className="field" style={{marginTop:14}}>
         <label htmlFor={`commentator-context-${match.id}`}>🎙️ תן חומר לפרשן</label>
         <textarea id={`commentator-context-${match.id}`} className="input" rows={3} maxLength={600} value={context} onChange={event => setContext(event.target.value)} placeholder="מה קרה במשחק שהפרשן צריך לדעת? למשל: יעקב הכניס עצמי וגילעד לא הפסיק לצחוק עליו…"/>
